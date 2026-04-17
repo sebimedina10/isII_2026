@@ -1,6 +1,12 @@
+com/is1/proyecto/models/Inscripcion.class
 com/is1/proyecto/App.class
+com/is1/proyecto/models/Doc_Materia.class
+com/is1/proyecto/models/Materia.class
 com/is1/proyecto/models/User.class
+com/is1/proyecto/models/Nota.class
 com/is1/proyecto/config/DBConfigSingleton.class
+com/is1/proyecto/models/Carrera.class
 com/is1/proyecto/models/Docente.class
 com/is1/proyecto/models/Persona.class
 com/is1/proyecto/models/Alumno.class
+com/is1/proyecto/models/Plan_estudio.class

@@ -99,7 +99,7 @@ CREATE TABLE inscripcion (
     id_inscripcion INTEGER PRIMARY KEY AUTOINCREMENT,
     id_alumno INTEGER NOT NULL,
     id_materia INTEGER NOT NULL,
-    estado TEXT CHECK(estado IN ('CURSANDO', 'APROBADA', 'DESAPROBADA'))
+    estado TEXT CHECK(estado IN ('CURSANDO', 'APROBADA', 'DESAPROBADA')),
 
     FOREIGN KEY (id_alumno) REFERENCES alumnos(id),
     FOREIGN KEY (id_materia) REFERENCES materia(id_materia)

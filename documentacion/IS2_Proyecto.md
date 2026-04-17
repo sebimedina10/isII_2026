@@ -20,6 +20,9 @@ comunicación entre alumnos, docentes y administrativos
 * Asignar docentes a materias con distintos roles (responsable, JTP, ayudante).
 * Tener funcionalidades de seguimiento del progreso y riesgo de abandono de los estudiantes.
 
+### Diagrama de clases UML:
+![Diagrama UML](imagenes/DiagramaClasesISII.png)
+
 ### 2. Usuarios del sistema
 
 * Administrador.
@@ -45,6 +48,8 @@ comunicación entre alumnos, docentes y administrativos
 * Gestión de usuarios (Identificación como: alumno, docente o administrativo).
 * Consulta de historial académico del alumno (notas de materias, materias que cursa actualmente y las que le faltan).
 * Seguimiento de estudiantes. 
+* Autenticación de usuarios.
+* Gestión de roles.
 
 ### 4. Restricciones técnicas
 
@@ -64,6 +69,13 @@ El equipo está compuesto por 2 integrantes.
 * SQLite: base de datos simple y fácil de integrar
 * Mustache: motor de plantillas sencillo
 * Maven: gestión de dependencias 
+
+## Decisiones de diseño
+
+- Se decidió utilizar SQLite por su simplicidad y facilidad de integración.
+- Se optó por ActiveJDBC para simplificar el acceso a la base de datos.
+- Se implementó una arquitectura MVC para separar responsabilidades.
+- Se decidió no implementar correlativas en esta etapa por complejidad.
 
 ### 7. Plazo estimado
 
@@ -113,11 +125,14 @@ El trabajo se realizó de forma colaborativa, utilizando control de versiones co
 | Técnico |Errores en la conexion a la base de datos |Alta |Alto | 
 | Técnico |Problemas con el scheme.sql desactualizado |Alta |Alto |
 | Técnico |Fallos en validacion de formularios |Media |Medio |
+| Técnico |Falta de tests automatizados que validen el correcto funcionamiento del sistema |Alta |Alto |
 | Organizacional |Falta de comunicacion en el equipo |Baja |Medio |
+| Organizacional |Falta de reuniones periódicas que puede generar descoordinación entre los integrantes |Media |Medio |
 | Organizacional |Falta de coordinacion de GitHub |Media |Medio | 
 | Planificación |Entrega fuera de plazo |Baja |Alto | 
 | Humano |Programadores sin experiencia para resolver algo |Alta |Critico | 
 | Humano |Roles no definidos por pocos integranes |Alta |Bajo | 
+| Humano |Dificultad para detectar errores mediante pruebas manuales únicamente |Alta |Alto | 
 
 
 ---
@@ -145,3 +160,25 @@ La combinación de ambos enfoques permite obtener un análisis más completo.
 La IA aporta amplitud y visión profesional, mientras que el equipo aporta profundidad en la implementación real.
 
 ---
+
+## ACTIVIDAD 3: (Design) Generar los Diagramas de Arquitectura del sistema y diagrama de diseño.
+
+
+### Diagrama de Arquitectura
+
+El siguiente diagrama representa la arquitectura general del sistema, mostrando los componentes principales y sus interacciones.
+
+```mermaid
+graph TD
+
+A[Cliente Web (Navegador)] -->|HTTP Request| B[Aplicación Web Java]
+
+B -->|Consultas| C[(Base de Datos SQLite)]
+
+B --> D[Controladores]
+B --> E[Modelos (ActiveJDBC)]
+B --> F[Vistas (Mustache)]
+
+D --> E
+E --> C
+D --> F
