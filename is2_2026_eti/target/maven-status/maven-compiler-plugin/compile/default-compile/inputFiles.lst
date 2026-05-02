@@ -1,6 +1,12 @@
-/home/sebastian_medinaa/Descargas/Proyecto/Parte II/is1_2025_eti/src/main/java/com/is1/proyecto/models/Persona.java
-/home/sebastian_medinaa/Descargas/Proyecto/Parte II/is1_2025_eti/src/main/java/com/is1/proyecto/models/User.java
-/home/sebastian_medinaa/Descargas/Proyecto/Parte II/is1_2025_eti/src/main/java/com/is1/proyecto/models/Docente.java
-/home/sebastian_medinaa/Descargas/Proyecto/Parte II/is1_2025_eti/src/main/java/com/is1/proyecto/models/Alumno.java
-/home/sebastian_medinaa/Descargas/Proyecto/Parte II/is1_2025_eti/src/main/java/com/is1/proyecto/App.java
-/home/sebastian_medinaa/Descargas/Proyecto/Parte II/is1_2025_eti/src/main/java/com/is1/proyecto/config/DBConfigSingleton.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/User.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/Alumno.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/App.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/Plan_estudio.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/Inscripcion.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/Carrera.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/Doc_Materia.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/config/DBConfigSingleton.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/Persona.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/Docente.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/Nota.java
+/home/leandro/Documentos/Anio 2025/Ingenieria de Software I/Proyecto/is2_2026/isII_2026/is2_2026_eti/src/main/java/com/is1/proyecto/models/Materia.java

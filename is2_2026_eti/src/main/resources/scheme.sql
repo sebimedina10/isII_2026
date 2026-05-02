@@ -32,10 +32,12 @@ CREATE TABLE docentes (
     dni INTEGER,
     titulo TEXT,
     rol TEXT CHECK(rol IN ('RESPONSABLE', 'JTP', 'AYUDANTE')),
+    id_facultad INTEGER,
 
     FOREIGN KEY (dni) REFERENCES persona(dni)
         ON DELETE CASCADE
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
+    FOREIGN KEY (id_facultad) REFERENCES facultad (id_facultad)
 );
 
 DROP TABLE IF EXISTS alumnos;
@@ -56,8 +58,10 @@ DROP TABLE IF EXISTS carrera;
 CREATE TABLE carrera (
     id_carrera INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre_carrera TEXT NOT NULL,
-    facultad TEXT NOT NULL,
-    cant_anios INTEGER NOT NULL
+    id_facultad INTEGER,
+    cant_anios INTEGER NOT NULL,
+
+    FOREIGN KEY (id_facultad) REFERENCES facultad (id_facultad)
 );
 
 DROP TABLE IF EXISTS materia;
@@ -126,3 +130,23 @@ CREATE TABLE alumno_carrera (
     FOREIGN KEY (id_alumno) REFERENCES alumnos(id),
     FOREIGN KEY (id_carrera) REFERENCES carrera(id_carrera)
 );
+
+DROP TABLE IF EXISTS facultad;
+
+CREATE TABLE facultad (
+    id_facultad INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL UNIQUE
+);
+
+-- Datos iniciales
+INSERT INTO facultad (nombre) VALUES
+('Ciencias Exactas'),
+('Ciencias Humanas'),
+('Ingeniería'),
+('Ciencias Económicas'),
+('Ciencias de la Salud'),
+('Arquitectura'),
+('Derecho'),
+('Agronomía'),
+('Veterinaria'),
+('Ciencias Sociales');

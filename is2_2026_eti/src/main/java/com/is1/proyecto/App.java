@@ -3,9 +3,12 @@ package com.is1.proyecto; // Define el paquete de la aplicación, debe coincidir
 // Importaciones necesarias para la aplicación Spark
 import java.util.HashMap; // Utilidad para serializar/deserializar objetos Java a/desde JSON.
 import java.util.Map; // Importa los métodos estáticos principales de Spark (get, post, before, after, etc.).
-
+import java.util.List;
 import org.javalite.activejdbc.Base; // Clase central de ActiveJDBC para gestionar la conexión a la base de datos.
 import org.mindrot.jbcrypt.BCrypt; // Utilidad para hashear y verificar contraseñas de forma segura.
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import com.fasterxml.jackson.databind.ObjectMapper; // Representa un modelo de datos y el nombre de la vista a renderizar.
 import com.is1.proyecto.config.DBConfigSingleton; // Motor de plantillas Mustache para Spark.
@@ -49,8 +52,12 @@ public class App {
             before((req, res) -> {
                 try {
                     // Abre una conexión a la base de datos utilizando las credenciales del singleton.
-                    Base.open(dbConfig.getDriver(), dbConfig.getDbUrl(), dbConfig.getUser(), dbConfig.getPass());
-                    System.out.println(req.url());
+                    if (!Base.hasConnection()) {
+                        Base.open(dbConfig.getDriver(), dbConfig.getDbUrl(), dbConfig.getUser(), dbConfig.getPass());
+                    }
+                    System.out.println("DEBUG URL: " + req.requestMethod() + " " + req.url());
+                    //System.out.println("DEBUG SESSION ID: " + req.session().id());
+                    //System.out.println("DEBUG USER_ID EN SESION: " + req.session().attribute("userId"));
 
                 } catch (Exception e) {
                     // Si ocurre un error al abrir la conexión, se registra y se detiene la solicitud
@@ -103,21 +110,49 @@ public class App {
             // Intenta obtener el nombre de usuario y la bandera de login de la sesión.
             String currentUsername = req.session().attribute("currentUserUsername");
             Boolean loggedIn = req.session().attribute("loggedIn");
+            Object userId = req.session().attribute("userId");
 
             // 1. Verificar si el usuario ha iniciado sesión.
             // Si no hay un nombre de usuario en la sesión, la bandera es nula o falsa,
             // significa que el usuario no está logueado o su sesión expiró.
-            if (currentUsername == null || loggedIn == null || !loggedIn) {
+            if (currentUsername == null || loggedIn == null || !loggedIn || userId == null) {
                 System.out.println("DEBUG: Acceso no autorizado a /dashboard. Redirigiendo a /login.");
+
                 // Redirige al login con un mensaje de error.
-                res.redirect("/login?error=Debes iniciar sesión para acceder a esta página.");
+                res.redirect("/?error=" + URLEncoder.encode("Debes iniciar sesión", StandardCharsets.UTF_8));
                 return null; // Importante retornar null después de una redirección.
             }
 
             // 2. Si el usuario está logueado, añade el nombre de usuario al modelo para la plantilla.
             model.put("username", currentUsername);
 
-            // 3. Renderiza la plantilla del dashboard con el nombre de usuario.
+            User user = User.findFirst("name = ?", currentUsername);
+
+            if (user == null) {
+                // Caso raro pero importante: usuario no existe
+                req.session().invalidate();
+                res.redirect("/?error=Usuario no válido.");
+                return null;
+            }
+
+            String type = user.getString("type");
+
+            // 3. Flags para el frontend (Mustache)
+
+            boolean isAlumno = "ALUMNO".equalsIgnoreCase(type);
+            boolean isDocente = "DOCENTE".equalsIgnoreCase(type);
+            boolean isAdmin = "ADMINISTRADOR".equalsIgnoreCase(type);
+
+            // 4. Datos para la vista
+            model.put("username", currentUsername);
+            model.put("isAlumno", isAlumno);
+            model.put("isDocente", isDocente);
+            model.put("isAdmin", isAdmin);
+            model.put("isAlumnoOrDocente", isAlumno || isDocente);
+
+            System.out.println("DEBUG: Usuario=" + currentUsername + " Tipo=" + type);
+
+            // 5. Renderiza la plantilla del dashboard con el nombre de usuario.
             return new ModelAndView(model, "dashboard.mustache");
         }, new MustacheTemplateEngine()); // Especifica el motor de plantillas para esta ruta.
 
@@ -219,7 +254,8 @@ public class App {
                 String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
                 ac.set("name", name); // Asigna el nombre de usuario.
                 ac.set("password", hashedPassword); // Asigna la contraseña hasheada.
-                ac.set("type", type);         
+                ac.set("type", type);
+                System.out.println("DEBUG REGISTER TYPE: " + type);
                 ac.set("id_persona", persona.getId()); 
                 ac.saveIt(); // Guarda el nuevo usuario en la tabla 'users'.
 
@@ -260,6 +296,7 @@ public class App {
             // Si no se encuentra ninguna cuenta con ese nombre de usuario.
             if (ac == null) {
                 res.status(401); // Unauthorized.
+                System.out.println("DEBUG: Intento de login fallido para: " + username);
                 model.put("errorMessage", "Usuario o contraseña incorrectos."); // Mensaje genérico por seguridad.
                 return new ModelAndView(model, "login.mustache"); // Renderiza la plantilla de login con error.
             }
@@ -271,20 +308,18 @@ public class App {
             // BCrypt.checkpw hashea la plainTextPassword con el salt de storedHashedPassword y compara.
             if (BCrypt.checkpw(plainTextPassword, storedHashedPassword)) {
                 // Autenticación exitosa.
-                res.status(200); // OK.
+                res.status(200);
 
                 // --- Gestión de Sesión ---
-                req.session(true).attribute("currentUserUsername", username); // Guarda el nombre de usuario en la sesión.
-                req.session().attribute("userId", ac.getId()); // Guarda el ID de la cuenta en la sesión (útil).
+                String userIdVal = ac.getString("id_user");
+                req.session(true).attribute("userId", userIdVal); // Guarda el ID de la cuenta en la sesión (útil).
+                req.session().attribute("currentUserUsername", username); // Guarda el nombre de usuario en la sesión.
                 req.session().attribute("loggedIn", true); // Establece una bandera para indicar que el usuario está logueado.
 
                 System.out.println("DEBUG: Login exitoso para la cuenta: " + username);
-                System.out.println("DEBUG: ID de Sesión: " + req.session().id());
 
-
-                model.put("username", username); // Añade el nombre de usuario al modelo para el dashboard.
-                // Renderiza la plantilla del dashboard tras un login exitoso.
-                return new ModelAndView(model, "dashboard.mustache");
+                res.redirect("/dashboard");
+                return null;
             } else {
                 // Contraseña incorrecta.
                 res.status(401); // Unauthorized.
@@ -336,106 +371,153 @@ public class App {
         });
     //Métodos de HTTP protocolo para transferir info entre servidor y cliente.
     
-    //Get y Post son tipo de Request.
-    // GET: SIRVE PARA OBTENER O SOLICITAR DATOS AL SERVIDOR SIN CAMBIAR NADA. 
-    //PARÁMETROS EN LA URL.
-    //Muestra la página del formulario al usuario para crear un nuevo docente.
-    // No debe procesar datos, sirve para mostrar mensajes de error y de éxito al cargar al usuario.
-        get("/docente/new", (req, res) -> {
-            //model es el contenido y view es la plantilla o vista. 
-            //model contiene la información. Necesitamos un map porque luego para renderizar
-            //se busca la clave ej: "errorMessagge" y se reemplaza por el marcador {{errorMessage}} en HTML.
-        Map<String, Object> model = new HashMap<>();
-        // Manejar mensajes de éxito o error si se redirige a esta página
-        // recupera el texto que está después del error=
-        String errorMessage = req.queryParams("error");
-        //si se encontró error se guarda en el modelo bajo la clave errorMesage.
-        if (errorMessage != null && !errorMessage.isEmpty()) {
-            model.put("errorMessage", errorMessage);
-        }
-        String successMessage = req.queryParams("Message");
-        if (successMessage != null && !successMessage.isEmpty()) {
-            model.put("successMessage", successMessage);
-        }
-        // Renderiza la plantilla del formulario de docente
-        // el ModelAndView le prepara al MustacheTemplateEngine() cuales son los datos a renderizar.
-        return new ModelAndView(model, "docente_form.mustache");
-        //Toma model y la plantilla. El motor Mustache ensambla y genera 
-        //una página HTML completa lista para ser mostrada
-    }, new MustacheTemplateEngine());
-    //finaliza la funcion lambda definida al inicio
-    //Reemplaza los valores de los marcadores {{clave}} por los datos del modelo y
-    //hace el HTML final.
+// GET: Muestra el formulario con los campos para completar
+        get("/datos", (req, res) -> {
+            Map<String, Object> model = new HashMap<>();
 
+            // Intentamos obtener el ID o el Username
+            Object sessionUserId = req.session().attribute("userId");
+            String sessionUsername = req.session().attribute("currentUserUsername");
 
-    // POST: Recibe los datos que el usuario escribio en el formulario para
-    //cargarlo en la base de datos. 
-    //ENVÍA DATOS AL SERVIDOR A TRAVÉS DEL BODY.
-    
-    //patrón PRG: Post/Redirect/Get:
-    // El usuario llena el formulario y hace submit: POST.
-    //El servidor procesa datos y guarda en BD, luego hace redirect a GET.
-    //El Navegador sigue la redirección y GET muestra el formulario con mensaje de éxito.
-            //funcion lambda con req y res.
-            //req (Request) peticion contiene información enviada por el cliente como (Párametros de formulario (DNI, Nombre), de URL(visibles), Cookies y headers)
-            //res (Response) respuesta permite configurar lo que se enviará al cliente ya sea redireccionar, cambiar código de estado, enviar texto o HTML, 
-        post("/docente/new", (req, res) -> {
-        try {
-            //Recibe los parámetros del formulario.
-            String dni = req.queryParams("dni");
-            String apellido = req.queryParams("apellido");
-            String nombre = req.queryParams("nombre");
-            String email = req.queryParams("email");
-
-            //Se debe hacer la validación aquí correspondiente.
-            
-            //Se indica obligatoriedad en los campos del formulario en el docente_form.mustache pero puede ser vulnerada.
-            //Por ende también realizamos el chequeo aquí para que no ingresen datos vacíos.
-            //Lo ponemos también en el html (Frontend) para evitar recargar la página.
-            if (dni == null || dni.isEmpty() || apellido == null || apellido.isEmpty() || nombre == null || nombre.isEmpty() || email == null || email.isEmpty()) {
-                //Esto lo va a recuperar el get y lo depositará en errorMessage
-                res.redirect("/docente/new?error=DNI,+Apellido,+Nombre,+y+Email+son+requeridos.");
-            //no retorna nada 
-            return null;
+            if (sessionUserId == null && sessionUsername == null) {
+                System.out.println("DEBUG: No hay sesión en /datos. Redirigiendo...");
+                res.redirect("/?error=" + URLEncoder.encode("Debes iniciar sesión", StandardCharsets.UTF_8));
+                return null;
             }
 
-          // DNI duplicado 
-        Docente dniExistente = Docente.findFirst("dni = ?", dni);
-        if (dniExistente != null) {
-            res.redirect("/docente/new?error=DNI+ya+registrado.");
-            return null;
-        }
+            // Buscamos al usuario (priorizamos ID, si no por nombre)
+            User user = null;
+            if (sessionUserId != null) {
+               user = User.findFirst("id_user = ?", sessionUserId);
+            } else {
+                user = User.findFirst("name = ?", sessionUsername);
+            }
 
-        // Email duplicado 
-        Docente emailExistente = Docente.findFirst("email = ?", email);
-        if (emailExistente != null) {
-            res.redirect("/docente/new?error=email+ya+registrado.");
-            return null;
-        }
-        //La validación de un 
-        // correo eléctronico correcto se realiza en form.
+            if (user == null) {
+                res.redirect("/?error=Usuario+no+encontrado");
+                return null;
+            }
 
-            Docente docente = new Docente();
-            docente.set("dni", dni);
-            docente.set("apellido", apellido);
-            docente.set("nombre", nombre);
-            docente.set("email", email);
-        
-            docente.saveIt();
-        
-            res.status(201); // Código de estado HTTP 201 (Created) para una creación exitosa.
-            // Redirige al formulario con un parámetro Message (de éxito) para que se pueda mostrar.
-            res.redirect("/docente/new?Message=Docente registrado correctamente.");
-            return null;
+            // Flag de tipos para Mustache
+            String type = user.getString("type");
+            model.put("isAlumno", "ALUMNO".equalsIgnoreCase(type));
+            model.put("isDocente", "DOCENTE".equalsIgnoreCase(type));
+            model.put("isAdmin", "ADMINISTRADOR".equalsIgnoreCase(type));
 
-        } catch (Exception e) {
-            System.err.println("Error al registrar el docente: " + e.getMessage());
-            e.printStackTrace(); // Imprime el stack trace para depuración.
-            res.status(500); // Código de estado HTTP 500 (Internal Server Error).
-            res.redirect("/docente/new?error=Error al registrar docente: " + e.getMessage());
-            return null;
-        }
-    });
+            // Cargar datos de Persona vinculada
+            Object idPersona = user.get("id_persona");
+            if (idPersona != null) {
+                Persona p = Persona.findById(idPersona);
+                if (p != null) {
+                    model.put("dni", p.get("dni"));
+                    model.put("nombre", p.get("nombre"));
+                    model.put("apellido", p.get("apellido"));
+                    model.put("email", p.get("email"));
+                    model.put("telefono", p.get("telefono"));
+
+                    if (p.get("fecha_nacimiento") != null) {
+                        String fecha = p.getString("fecha_nacimiento"); // Formato SQL: YYYY-MM-DD
+                        String[] partes = fecha.split("-");
+                        model.put("anio_val", partes[0]);
+                        model.put("mes_val", partes[1]);
+                        model.put("dia_val", partes[2]);
+                    }
+
+                    if ("DOCENTE".equalsIgnoreCase(type)) {
+                        Docente d = Docente.findFirst("dni = ?", p.get("dni"));
+                        if (d != null) {
+                            model.put("titulo", d.get("titulo"));
+                            model.put("rol", d.get("rol"));
+                            model.put("id_facultad_actual", d.get("id_facultad"));
+                        }
+                    }
+                }
+            }
+
+            model.put("facultades", Base.findAll("SELECT id_facultad, nombre FROM facultad"));
+            return new ModelAndView(model, "datos.mustache");
+        }, new MustacheTemplateEngine());
+
+
+        post("/datos", (req, res) -> {
+            try {
+                // 1. Verificación robusta de la sesión
+                String sessionUserId = req.session().attribute("userId");
+
+                if (sessionUserId == null) {
+                    res.redirect("/?error=" + URLEncoder.encode("Sesión expirada", "UTF-8"));
+                    return null;
+                }
+
+                // 2. Buscamos al usuario existente
+                User user = User.findFirst("id_user = ?", sessionUserId);
+
+                if (user == null) {
+                    res.redirect("/?error=Usuario+no+existe");
+                    return null;
+                }
+
+                String tipo = user.getString("type");
+
+                // 3. Capturar datos del formulario
+                String dni = req.queryParams("dni");
+                String nombre = req.queryParams("nombre");
+                String apellido = req.queryParams("apellido");
+                String email = req.queryParams("email");
+                String telefono = req.queryParams("telefono");
+
+                // 4. Manejo de la Fecha de Nacimiento
+                String dia = req.queryParams("dia");
+                String mes = req.queryParams("mes");
+                String anio = req.queryParams("anio");
+                String fechaNacimientoFull = (dia != null && !dia.isEmpty()) ? anio + "-" + mes + "-" + dia : null;
+
+                // 5. Actualizar o Crear Persona
+                Persona p = Persona.findFirst("dni = ?", dni);
+                if (p == null) {
+                    p = new Persona();
+                    p.set("dni", dni);
+                }
+
+                p.set("nombre", nombre);
+                p.set("apellido", apellido);
+                p.set("email", email);
+                p.set("telefono", telefono);
+                p.set("fecha_nacimiento", fechaNacimientoFull);
+                p.saveIt();
+
+                // 6. Asegurar vínculo Usuario -> Persona y GUARDAR
+                // Usamos UPDATE directo para que no intente crear un usuario nuevo
+                Base.exec("UPDATE users SET id_persona = ? WHERE id_user = ?", p.getId(), sessionUserId);
+
+                // 7. Lógica específica por tipo de usuario
+                if ("DOCENTE".equalsIgnoreCase(tipo)) {
+                    Docente d = Docente.findFirst("dni = ?", dni);
+                    if (d == null) d = new Docente();
+                    d.set("dni", dni);
+                    d.set("titulo", req.queryParams("titulo"));
+                    d.set("rol", req.queryParams("rol"));
+                    d.set("id_facultad", req.queryParams("id_facultad"));
+                    d.saveIt();
+                } else if ("ALUMNO".equalsIgnoreCase(tipo)) {
+                    Alumno al = Alumno.findFirst("dni = ?", dni);
+                    if (al == null) {
+                        al = new Alumno();
+                        al.set("dni", dni);
+                        al.set("progreso", 0);
+                    }
+                    al.saveIt();
+                }
+
+                res.redirect("/dashboard?message=" + URLEncoder.encode("Datos guardados con éxito", "UTF-8"));
+                return null;
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                res.redirect("/datos?error=" + URLEncoder.encode("Error técnico al guardar", "UTF-8"));
+                return null;
+            }
+        });
 
     } // Fin del método main
 } // Fin de la clase App
