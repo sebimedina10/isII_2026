@@ -519,5 +519,109 @@ public class App {
             }
         });
 
+        get("/admin/carrera", (req, res) -> {
+
+            String userId = req.session().attribute("userId");
+
+            if (userId == null) {
+                res.redirect("/");
+                return null;
+            }
+
+            User user = User.findFirst("id_user = ?", userId);
+
+            if (user == null || !"ADMINISTRADOR".equalsIgnoreCase(user.getString("type"))) {
+                halt(403, "No autorizado");
+            }
+
+            Map<String, Object> model = new HashMap<>();
+
+            model.put("facultades", Base.findAll("SELECT id_facultad, nombre FROM facultad"));
+            model.put("carreras",
+                Base.findAll("SELECT nombre_carrera as nombre, cant_anios as anios FROM carrera"));
+
+            String error = req.queryParams("error");
+            if (error != null) model.put("error", error);
+
+            return new ModelAndView(model, "admin_carrera.mustache");
+
+        }, new MustacheTemplateEngine());
+
+post("/admin/carrera", (req, res) -> {
+            try {
+                String nombre = req.queryParams("nombre_carrera");
+                String anios = req.queryParams("anios");
+                String idFacultad = req.queryParams("id_facultad");
+
+                // Verificamos si la carrera ya existe
+                // Usamos Number para evitar el ClassCastException entre Integer y Long
+                Number existeCarrera = (Number) Base.firstCell("SELECT count(*) FROM carrera WHERE nombre_carrera = ?", nombre);
+
+                if (existeCarrera.longValue() > 0) {
+                    res.redirect("/admin/carrera?error=" + URLEncoder.encode("La carrera ya existe", "UTF-8"));
+                    return null;
+                }
+
+                if (nombre == null || nombre.isEmpty()) {
+                    res.redirect("/admin/carrera?error=" + URLEncoder.encode("El nombre es obligatorio", "UTF-8"));
+                    return null;
+                }
+
+                // 1. Insertar la nueva carrera
+                Base.exec("INSERT INTO carrera (nombre_carrera, cant_anios, id_facultad) VALUES (?, ?, ?)",
+                          nombre, anios, idFacultad);
+
+                Object idCarrera = Base.firstCell("SELECT last_insert_rowid()");
+
+                // 3. Procesar los parámetros dinámicos de las materias
+                Map<String, String[]> params = req.queryMap().toMap();
+
+                for (String key : params.keySet()) {
+                    if (key.startsWith("materia_codigo_")) {
+                        String[] partes = key.split("_");
+                        String anioPerteneciente = partes[2];
+                        String index = partes[3];
+
+                        String codigo = req.queryParams("materia_codigo_" + anioPerteneciente + "_" + index);
+                        String nombreMat = req.queryParams("materia_nombre_" + anioPerteneciente + "_" + index);
+                        String horas = req.queryParams("materia_horas_" + anioPerteneciente + "_" + index);
+                        String cuatri = req.queryParams("materia_cuatri_" + anioPerteneciente + "_" + index);
+
+                        if (nombreMat != null && !nombreMat.isEmpty()) {
+
+                            // VALIDACIÓN DE CÓDIGO DE MATERIA:
+                            Number existeMateria = (Number) Base.firstCell("SELECT count(*) FROM materia WHERE codigo = ?", codigo);
+
+                            if (existeMateria.longValue() > 0) {
+                                // Si el código ya existe, podemos optar por no insertarla o saltarla
+                                // Aquí simplemente la saltamos para no romper todo el proceso, pero podrías avisar al usuario
+                                System.out.println("DEBUG: El codigo de materia " + codigo + " ya existe. Saltando...");
+                                continue;
+                            }
+
+                            // 4. Guardar la materia
+                            Base.exec("INSERT INTO materia (codigo, nombre_materia, anio_pertenece, cant_horas, periodo) VALUES (?, ?, ?, ?, ?)",
+                                      codigo, nombreMat, anioPerteneciente, horas, cuatri);
+
+                            Object idMateria = Base.firstCell("SELECT last_insert_rowid()");
+
+                            // 5. Relacionar Carrera con Materia
+                            Base.exec("INSERT INTO plan_estudio (id_carrera, id_materia) VALUES (?, ?)",
+                                      idCarrera, idMateria);
+                        }
+                    }
+                }
+
+                res.redirect("/admin/carrera?success=" + URLEncoder.encode("Carrera guardada con éxito", "UTF-8"));
+                return null;
+
+            } catch (Exception e) {
+                System.err.println("Error al guardar carrera: " + e.getMessage());
+                e.printStackTrace();
+                res.redirect("/admin/carrera?error=" + URLEncoder.encode("Error interno: " + e.getMessage(), "UTF-8"));
+                return null;
+            }
+        });
+
     } // Fin del método main
 } // Fin de la clase App
