@@ -5,5 +5,11 @@ import org.javalite.activejdbc.annotations.Table;
 
 @Table("alumnos") //name of table 
 public class Alumno extends Model {
-    //Getters y setters de tables son creados automáticamente .
+    public String getDniPersona() {
+        return getString("dni");
+    }
+
+    public void setDniPersona(String dniPersona) {
+        set("dni", dniPersona);
+    }
 }

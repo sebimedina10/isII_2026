@@ -27,10 +27,10 @@
         <form action="/datos" method="post">
 
             <!-- PERSONA -->
-            <input type="number" name="dni" placeholder="DNI" class="w-full mb-2 p-2 border" required>
-            <input type="text" name="nombre" placeholder="Nombre" class="w-full mb-2 p-2 border" required>
-            <input type="text" name="apellido" placeholder="Apellido" class="w-full mb-2 p-2 border" required>
-            <input type="email" name="email" placeholder="Email" class="w-full mb-2 p-2 border" required>
+            <input type="number" name="dni" placeholder="DNI" value="{{dni}}" class="w-full mb-2 p-2 border" required>
+            <input type="text" name="nombre" placeholder="Nombre" value="{{nombre}}" class="w-full mb-2 p-2 border" required>
+            <input type="text" name="apellido" placeholder="Apellido" value="{{apellido}}" class="w-full mb-2 p-2 border" required>
+            <input type="email" name="email" placeholder="Email" value="{{email}}" class="w-full mb-2 p-2 border" required>
             <input type="text" name="telefono" placeholder="Ej: 3584112233" value="{{telefono}}" class="w-full mb-2 p-2 border">
             <label class="block text-gray-700 text-sm font-bold mb-1">Fecha de Nacimiento</label>
             <div class="flex gap-2 mb-4">
@@ -68,7 +68,7 @@
             {{#isDocente}}
             <div class="bg-purple-50 p-4 rounded mt-4">
                 <h3 class="font-bold mb-2 text-purple-700">Datos de Docente</h3>
-                <input type="text" name="titulo" placeholder="Título" class="w-full mb-2 p-2 border">
+                <input type="text" name="titulo" placeholder="Título" value="{{titulo}}" class="w-full mb-2 p-2 border">
                 <select name="rol" class="w-full mb-2 p-2 border">
                     <option value="">Seleccionar rol</option>
                     <option value="RESPONSABLE">Responsable</option>
@@ -76,13 +76,15 @@
                     <option value="AYUDANTE">Ayudante</option>
                 </select>
 
-                <select name="id_facultad" class="w-full mb-2 p-2 border">
-                    <option value="">Seleccionar facultad</option>
+                <label class="block text-gray-700 text-sm font-bold mb-2 mt-2">Departamentos/Facultades a las que pertenece:</label>
+                <div class="space-y-1 mb-2 bg-white p-2 border rounded max-h-40 overflow-y-auto">
                     {{#facultades}}
-                    <option value="{{id_facultad}}">{{nombre}}</option>
+                    <label class="flex items-center space-x-2 text-gray-700 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <input type="checkbox" name="id_facultad" value="{{id_facultad}}" class="rounded border-gray-300 text-purple-600 focus:ring-purple-500" {{#seleccionada}}checked{{/seleccionada}}>
+                        <span>{{nombre}}</span>
+                    </label>
                     {{/facultades}}
-                </select>
-
+                </div>
             </div>
             {{/isDocente}}
             <!-- ===================== -->
@@ -96,7 +98,7 @@
 
             {{/isAlumno}}
             <button type="submit"
-            class="bg-blue-500 text-white px-4 py-2 w-full mt-4">
+            class="bg-blue-500 text-white px-4 py-2 w-full mt-4 rounded-md hover:bg-blue-600">
             Guardar
         </button>
     </form>
@@ -152,6 +154,12 @@
     // Si venimos de la BD, marcamos el mes correcto
     if ("{{mes_val}}") {
         selectMes.value = "{{mes_val}}";
+    }
+
+    // Si venimos de la BD, marcamos el rol de docente correcto
+    if ("{{rol}}") {
+        const selectRol = document.querySelector("select[name='rol']");
+        if (selectRol) selectRol.value = "{{rol}}";
     }
 
     // Ejecutar al cargar para inicializar los días

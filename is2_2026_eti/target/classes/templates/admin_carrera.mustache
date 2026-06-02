@@ -92,9 +92,11 @@ inputAnios.addEventListener("change", () => {
     }
 });
 
+let materiaCounter = 0;
+
 function agregarMateria(anio) {
     const cont = document.getElementById("anio_" + anio);
-    const index = cont.children.length;
+    const index = materiaCounter++;
 
     const div = document.createElement("div");
     div.className = "grid grid-cols-5 gap-2 mb-2";

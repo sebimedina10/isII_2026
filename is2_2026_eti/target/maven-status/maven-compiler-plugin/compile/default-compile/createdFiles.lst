@@ -9,4 +9,5 @@ com/is1/proyecto/models/Carrera.class
 com/is1/proyecto/models/Docente.class
 com/is1/proyecto/models/Persona.class
 com/is1/proyecto/models/Alumno.class
+com/is1/proyecto/models/Doc_Facultad.class
 com/is1/proyecto/models/Plan_estudio.class

@@ -47,7 +47,7 @@ public class App {
             // Obtener la instancia única del singleton de configuración de la base de datos.
             DBConfigSingleton dbConfig = DBConfigSingleton.getInstance();
 
-            // --- Filtro 'before' para gestionar la conexión a la base de datos ---
+// --- Filtro 'before' para gestionar la conexión a la base de datos ---
             // Este filtro se ejecuta antes de cada solicitud HTTP.
             before((req, res) -> {
                 try {
@@ -56,14 +56,58 @@ public class App {
                         Base.open(dbConfig.getDriver(), dbConfig.getDbUrl(), dbConfig.getUser(), dbConfig.getPass());
                     }
                     System.out.println("DEBUG URL: " + req.requestMethod() + " " + req.url());
-                    //System.out.println("DEBUG SESSION ID: " + req.session().id());
-                    //System.out.println("DEBUG USER_ID EN SESION: " + req.session().attribute("userId"));
-
                 } catch (Exception e) {
                     // Si ocurre un error al abrir la conexión, se registra y se detiene la solicitud
-                    // con un código de estado 500 (Internal Server Error) y un mensaje JSON.
                     System.err.println("Error al abrir conexión con ActiveJDBC: " + e.getMessage());
-                    halt(500, "{\"error\": \"Error interno del servidor: Fallo al conectar a la base de datos.\"}" + e.getMessage());
+                    halt(500, "{\"error\": \"Error interno del servidor: Fallo al conectar a la base de datos. " + e.getMessage() + "\"}");
+                }
+            });
+
+            // --- Filtro 'before' para gestionar la autorización de acceso centralizada ---
+            // Este filtro se ejecuta después de abrir la conexión a la base de datos.
+            before((req, res) -> {
+                String path = req.pathInfo();
+
+                // Ignorar el filtro para las rutas públicas
+                if (path.equals("/") || path.equals("/login") || path.equals("/user/create") || path.equals("/user/new") || path.equals("/add_users") || path.equals("/logout")) {
+                    return;
+                }
+
+                // 1. Verificar si el usuario ha iniciado sesión
+                String userId = req.session().attribute("userId");
+                if (userId == null) {
+                    System.out.println("DEBUG AUTH: Acceso denegado a " + path + ". Redirigiendo al login.");
+                    res.redirect("/?error=" + URLEncoder.encode("Debes iniciar sesión para acceder.", "UTF-8"));
+                    halt();
+                }
+
+                // 2. Obtener el usuario de la base de datos
+                User user = User.findFirst("id_user = ?", userId);
+                if (user == null) {
+                    System.out.println("DEBUG AUTH: Usuario no encontrado en BD. Invalidando sesión.");
+                    req.session().invalidate();
+                    res.redirect("/?error=" + URLEncoder.encode("Sesión inválida.", "UTF-8"));
+                    halt();
+                }
+
+                String role = user.getString("type");
+
+                // 3. Control de acceso por Roles (Autorización)
+                if (path.startsWith("/admin/")) {
+                    if (!"ADMINISTRADOR".equalsIgnoreCase(role)) {
+                        System.out.println("DEBUG AUTH: Acceso prohibido a " + path + " para el rol " + role);
+                        halt(403, "No tienes permisos de Administrador para acceder a esta sección.");
+                    }
+                } else if (path.startsWith("/docente/")) {
+                    if (!"DOCENTE".equalsIgnoreCase(role)) {
+                        System.out.println("DEBUG AUTH: Acceso prohibido a " + path + " para el rol " + role);
+                        halt(403, "No tienes permisos de Docente para acceder a esta sección.");
+                    }
+                } else if (path.startsWith("/inscripcion/")) {
+                    if (!"ALUMNO".equalsIgnoreCase(role)) {
+                        System.out.println("DEBUG AUTH: Acceso prohibido a " + path + " para el rol " + role);
+                        halt(403, "No tienes permisos de Alumno para acceder a esta sección.");
+                    }
                 }
             });
 
@@ -72,9 +116,8 @@ public class App {
             after((req, res) -> {
                 try {
                     // Cierra la conexión a la base de datos para liberar recursos.
-                        Base.close();
+                    Base.close();
                 } catch (Exception e) {
-                    // Si ocurre un error al cerrar la conexión, se registra.
                     System.err.println("Error al cerrar conexión con ActiveJDBC: " + e.getMessage());
                 }
             });
@@ -104,36 +147,16 @@ public class App {
 
         // GET: Ruta para mostrar el dashboard (panel de control) del usuario.
         // Requiere que el usuario esté autenticado.
+        // GET: Ruta para mostrar el dashboard (panel de control) del usuario.
+        // Requiere que el usuario esté autenticado.
         get("/dashboard", (req, res) -> {
             Map<String, Object> model = new HashMap<>(); // Modelo para la plantilla del dashboard.
 
-            // Intenta obtener el nombre de usuario y la bandera de login de la sesión.
             String currentUsername = req.session().attribute("currentUserUsername");
-            Boolean loggedIn = req.session().attribute("loggedIn");
             Object userId = req.session().attribute("userId");
 
-            // 1. Verificar si el usuario ha iniciado sesión.
-            // Si no hay un nombre de usuario en la sesión, la bandera es nula o falsa,
-            // significa que el usuario no está logueado o su sesión expiró.
-            if (currentUsername == null || loggedIn == null || !loggedIn || userId == null) {
-                System.out.println("DEBUG: Acceso no autorizado a /dashboard. Redirigiendo a /login.");
-
-                // Redirige al login con un mensaje de error.
-                res.redirect("/?error=" + URLEncoder.encode("Debes iniciar sesión", StandardCharsets.UTF_8));
-                return null; // Importante retornar null después de una redirección.
-            }
-
-            // 2. Si el usuario está logueado, añade el nombre de usuario al modelo para la plantilla.
-            model.put("username", currentUsername);
-
-            User user = User.findFirst("name = ?", currentUsername);
-
-            if (user == null) {
-                // Caso raro pero importante: usuario no existe
-                req.session().invalidate();
-                res.redirect("/?error=Usuario no válido.");
-                return null;
-            }
+            User user = User.findFirst("id_user = ?", userId);
+            // El filtro ya garantiza que user no es nulo y está autenticado.
 
             String type = user.getString("type");
 
@@ -375,28 +398,8 @@ public class App {
         get("/datos", (req, res) -> {
             Map<String, Object> model = new HashMap<>();
 
-            // Intentamos obtener el ID o el Username
             Object sessionUserId = req.session().attribute("userId");
-            String sessionUsername = req.session().attribute("currentUserUsername");
-
-            if (sessionUserId == null && sessionUsername == null) {
-                System.out.println("DEBUG: No hay sesión en /datos. Redirigiendo...");
-                res.redirect("/?error=" + URLEncoder.encode("Debes iniciar sesión", StandardCharsets.UTF_8));
-                return null;
-            }
-
-            // Buscamos al usuario (priorizamos ID, si no por nombre)
-            User user = null;
-            if (sessionUserId != null) {
-               user = User.findFirst("id_user = ?", sessionUserId);
-            } else {
-                user = User.findFirst("name = ?", sessionUsername);
-            }
-
-            if (user == null) {
-                res.redirect("/?error=Usuario+no+encontrado");
-                return null;
-            }
+            User user = User.findFirst("id_user = ?", sessionUserId);
 
             // Flag de tipos para Mustache
             String type = user.getString("type");
@@ -418,9 +421,11 @@ public class App {
                     if (p.get("fecha_nacimiento") != null) {
                         String fecha = p.getString("fecha_nacimiento"); // Formato SQL: YYYY-MM-DD
                         String[] partes = fecha.split("-");
-                        model.put("anio_val", partes[0]);
-                        model.put("mes_val", partes[1]);
-                        model.put("dia_val", partes[2]);
+                        if (partes.length == 3) {
+                            model.put("anio_val", partes[0]);
+                            model.put("mes_val", partes[1]);
+                            model.put("dia_val", partes[2]);
+                        }
                     }
 
                     if ("DOCENTE".equalsIgnoreCase(type)) {
@@ -428,55 +433,102 @@ public class App {
                         if (d != null) {
                             model.put("titulo", d.get("titulo"));
                             model.put("rol", d.get("rol"));
-                            model.put("id_facultad_actual", d.get("id_facultad"));
+                            List<Object> selectedIds = Base.firstColumn("SELECT id_facultad FROM docente_facultad WHERE id_docente = ?", d.getId());
+                            model.put("selectedFacultades", selectedIds);
                         }
                     }
                 }
             }
 
-            model.put("facultades", Base.findAll("SELECT id_facultad, nombre FROM facultad"));
+            List<Map> facultades = Base.findAll("SELECT id_facultad, nombre FROM facultad");
+            if (model.containsKey("selectedFacultades")) {
+                List<Object> selectedIds = (List<Object>) model.get("selectedFacultades");
+                for (Map fac : facultades) {
+                    Object idFac = fac.get("id_facultad");
+                    boolean match = false;
+                    for (Object selId : selectedIds) {
+                        if (String.valueOf(selId).equals(String.valueOf(idFac))) {
+                            match = true;
+                            break;
+                        }
+                    }
+                    if (match) {
+                        fac.put("seleccionada", true);
+                    }
+                }
+            }
+            model.put("facultades", facultades);
             return new ModelAndView(model, "datos.mustache");
         }, new MustacheTemplateEngine());
 
 
         post("/datos", (req, res) -> {
             try {
-                // 1. Verificación robusta de la sesión
+                // 1. Verificación de la sesión (el filtro ya valida userId != null, pero obtenemos la variable)
                 String sessionUserId = req.session().attribute("userId");
-
-                if (sessionUserId == null) {
-                    res.redirect("/?error=" + URLEncoder.encode("Sesión expirada", "UTF-8"));
-                    return null;
-                }
-
-                // 2. Buscamos al usuario existente
                 User user = User.findFirst("id_user = ?", sessionUserId);
-
-                if (user == null) {
-                    res.redirect("/?error=Usuario+no+existe");
-                    return null;
-                }
-
                 String tipo = user.getString("type");
 
-                // 3. Capturar datos del formulario
+                // 2. Capturar datos del formulario
                 String dni = req.queryParams("dni");
                 String nombre = req.queryParams("nombre");
                 String apellido = req.queryParams("apellido");
                 String email = req.queryParams("email");
                 String telefono = req.queryParams("telefono");
 
-                // 4. Manejo de la Fecha de Nacimiento
+                // 3. Manejo de la Fecha de Nacimiento
                 String dia = req.queryParams("dia");
                 String mes = req.queryParams("mes");
                 String anio = req.queryParams("anio");
                 String fechaNacimientoFull = (dia != null && !dia.isEmpty()) ? anio + "-" + mes + "-" + dia : null;
 
-                // 5. Actualizar o Crear Persona
-                Persona p = Persona.findFirst("dni = ?", dni);
-                if (p == null) {
-                    p = new Persona();
-                    p.set("dni", dni);
+                // 4. Validación defensiva de DNI positivo
+                try {
+                    int dniInt = Integer.parseInt(dni);
+                    if (dniInt <= 0) throw new NumberFormatException();
+                } catch (NumberFormatException e) {
+                    res.redirect("/datos?error=" + URLEncoder.encode("El DNI debe ser un número entero positivo.", "UTF-8"));
+                    return null;
+                }
+
+                // 5. Actualizar o Crear Persona con validación de DNI ocupado
+                Object idPersona = user.get("id_persona");
+                Persona p = null;
+
+                if (idPersona != null) {
+                    p = Persona.findById(idPersona);
+                }
+
+                Persona personaConDni = Persona.findFirst("dni = ?", dni);
+
+                if (p != null) {
+                    // Si cambia su DNI anterior, verificamos si el nuevo DNI ya le pertenece a otro usuario
+                    if (!String.valueOf(p.get("dni")).equals(dni)) {
+                        if (personaConDni != null) {
+                            User userAsociado = User.findFirst("id_persona = ?", personaConDni.getId());
+                            if (userAsociado != null && !String.valueOf(userAsociado.get("id_user")).equals(sessionUserId)) {
+                                res.redirect("/datos?error=" + URLEncoder.encode("El DNI ingresado ya está asociado a otra cuenta.", "UTF-8"));
+                                return null;
+                            }
+                            // Si existe y no tiene usuario, lo reutilizamos
+                            p = personaConDni;
+                        } else {
+                            p.set("dni", dni);
+                        }
+                    }
+                } else {
+                    // Si el usuario no tenía Persona asociada aún, chequeamos si el DNI ingresado ya está ocupado
+                    if (personaConDni != null) {
+                        User userAsociado = User.findFirst("id_persona = ?", personaConDni.getId());
+                        if (userAsociado != null && !String.valueOf(userAsociado.get("id_user")).equals(sessionUserId)) {
+                            res.redirect("/datos?error=" + URLEncoder.encode("El DNI ingresado ya está asociado a otra cuenta.", "UTF-8"));
+                            return null;
+                        }
+                        p = personaConDni;
+                    } else {
+                        p = new Persona();
+                        p.set("dni", dni);
+                    }
                 }
 
                 p.set("nombre", nombre);
@@ -487,18 +539,31 @@ public class App {
                 p.saveIt();
 
                 // 6. Asegurar vínculo Usuario -> Persona y GUARDAR
-                // Usamos UPDATE directo para que no intente crear un usuario nuevo
-                Base.exec("UPDATE users SET id_persona = ? WHERE id_user = ?", p.getId(), sessionUserId);
+                user.set("id_persona", p.getId());
+                user.saveIt();
 
                 // 7. Lógica específica por tipo de usuario
                 if ("DOCENTE".equalsIgnoreCase(tipo)) {
                     Docente d = Docente.findFirst("dni = ?", dni);
-                    if (d == null) d = new Docente();
+                    if (d == null) {
+                        d = new Docente();
+                    }
                     d.set("dni", dni);
                     d.set("titulo", req.queryParams("titulo"));
                     d.set("rol", req.queryParams("rol"));
-                    d.set("id_facultad", req.queryParams("id_facultad"));
                     d.saveIt();
+
+                    // Guardar relación de facultades múltiples (N a N)
+                    Base.exec("DELETE FROM docente_facultad WHERE id_docente = ?", d.getId());
+                    String[] selectedFacs = req.queryParamsValues("id_facultad");
+                    if (selectedFacs != null) {
+                        for (String idFacStr : selectedFacs) {
+                            if (idFacStr != null && !idFacStr.isEmpty()) {
+                                Base.exec("INSERT INTO docente_facultad (id_docente, id_facultad) VALUES (?, ?)",
+                                          d.getId(), Integer.parseInt(idFacStr));
+                            }
+                        }
+                    }
                 } else if ("ALUMNO".equalsIgnoreCase(tipo)) {
                     Alumno al = Alumno.findFirst("dni = ?", dni);
                     if (al == null) {
@@ -520,20 +585,6 @@ public class App {
         });
 
         get("/admin/carrera", (req, res) -> {
-
-            String userId = req.session().attribute("userId");
-
-            if (userId == null) {
-                res.redirect("/");
-                return null;
-            }
-
-            User user = User.findFirst("id_user = ?", userId);
-
-            if (user == null || !"ADMINISTRADOR".equalsIgnoreCase(user.getString("type"))) {
-                halt(403, "No autorizado");
-            }
-
             Map<String, Object> model = new HashMap<>();
 
             model.put("facultades", Base.findAll("SELECT id_facultad, nombre FROM facultad"));
@@ -619,6 +670,117 @@ post("/admin/carrera", (req, res) -> {
                 System.err.println("Error al guardar carrera: " + e.getMessage());
                 e.printStackTrace();
                 res.redirect("/admin/carrera?error=" + URLEncoder.encode("Error interno: " + e.getMessage(), "UTF-8"));
+                return null;
+            }
+        });
+
+        // GET: Muestra el formulario para asignar docentes a materias
+        get("/admin/asignar-docente", (req, res) -> {
+            Map<String, Object> model = new HashMap<>();
+
+            // Cargar facultades
+            List<Map> facultades = Base.findAll("SELECT id_facultad, nombre FROM facultad");
+            String idFacultadStr = req.queryParams("id_facultad");
+
+            if (idFacultadStr != null && !idFacultadStr.isEmpty()) {
+                int idFacultad = Integer.parseInt(idFacultadStr);
+
+                // Marcar facultad seleccionada
+                for (Map fac : facultades) {
+                    if (String.valueOf(fac.get("id_facultad")).equals(idFacultadStr)) {
+                        fac.put("selected", true);
+                    }
+                }
+
+                // Cargar docentes de esta facultad (N a N a través de docente_facultad)
+                List<Map> docentes = Base.findAll(
+                    "SELECT d.id, p.apellido, p.nombre FROM docentes d " +
+                    "JOIN persona p ON d.dni = p.dni " +
+                    "JOIN docente_facultad df ON d.id = df.id_docente " +
+                    "WHERE df.id_facultad = ?", idFacultad);
+
+                // Cargar materias de esta facultad (materias que pertenecen a carreras radicadas en la facultad)
+                List<Map> materias = Base.findAll(
+                    "SELECT m.id_materia, m.nombre_materia, m.codigo, c.nombre_carrera FROM materia m " +
+                    "JOIN plan_estudio pe ON m.id_materia = pe.id_materia " +
+                    "JOIN carrera c ON pe.id_carrera = c.id_carrera " +
+                    "WHERE c.id_facultad = ?", idFacultad);
+
+                model.put("facultadSeleccionada", true);
+                model.put("facultadId", idFacultad);
+                model.put("docentes", docentes);
+                model.put("materias", materias);
+            }
+
+            // Cargar asignaciones actuales
+            List<Map> asignaciones = Base.findAll(
+                "SELECT dm.id_DocMat, (p.apellido || ', ' || p.nombre) as docente, m.nombre_materia as materia, c.nombre_carrera as carrera " +
+                "FROM docente_materia dm " +
+                "JOIN docentes d ON dm.id_docente = d.id " +
+                "JOIN persona p ON d.dni = p.dni " +
+                "JOIN materia m ON dm.id_materia = m.id_materia " +
+                "JOIN plan_estudio pe ON m.id_materia = pe.id_materia " +
+                "JOIN carrera c ON pe.id_carrera = c.id_carrera");
+
+            model.put("facultades", facultades);
+            model.put("asignaciones", asignaciones);
+
+            String error = req.queryParams("error");
+            if (error != null) model.put("errorMessage", error);
+            String success = req.queryParams("success");
+            if (success != null) model.put("successMessage", success);
+
+            return new ModelAndView(model, "admin_asignar.mustache");
+        }, new MustacheTemplateEngine());
+
+        // POST: Procesa la asignación de un docente a una materia
+        post("/admin/asignar-docente", (req, res) -> {
+            String idDocente = req.queryParams("id_docente");
+            String idMateria = req.queryParams("id_materia");
+            String idFacultad = req.queryParams("id_facultad");
+
+            if (idDocente == null || idDocente.isEmpty() || idMateria == null || idMateria.isEmpty()) {
+                res.redirect("/admin/asignar-docente?id_facultad=" + idFacultad + "&error=" + URLEncoder.encode("Campos obligatorios faltantes", "UTF-8"));
+                return null;
+            }
+
+            try {
+                // Verificar duplicados
+                Number existe = (Number) Base.firstCell(
+                    "SELECT COUNT(*) FROM docente_materia WHERE id_docente = ? AND id_materia = ?",
+                    Integer.parseInt(idDocente), Integer.parseInt(idMateria));
+
+                if (existe.longValue() > 0) {
+                    res.redirect("/admin/asignar-docente?id_facultad=" + idFacultad + "&error=" + URLEncoder.encode("El docente ya está asignado a esa materia.", "UTF-8"));
+                    return null;
+                }
+
+                Base.exec("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?)",
+                          Integer.parseInt(idDocente), Integer.parseInt(idMateria));
+
+                res.redirect("/admin/asignar-docente?id_facultad=" + idFacultad + "&success=" + URLEncoder.encode("Asignación realizada con éxito", "UTF-8"));
+                return null;
+            } catch (Exception e) {
+                e.printStackTrace();
+                res.redirect("/admin/asignar-docente?id_facultad=" + idFacultad + "&error=" + URLEncoder.encode("Error al realizar asignación: " + e.getMessage(), "UTF-8"));
+                return null;
+            }
+        });
+
+        // POST: Elimina una asignación existente
+        post("/admin/asignar-docente/delete", (req, res) -> {
+            String idDocMat = req.queryParams("id_doc_mat");
+            if (idDocMat == null || idDocMat.isEmpty()) {
+                res.redirect("/admin/asignar-docente?error=" + URLEncoder.encode("ID de asignación no válido", "UTF-8"));
+                return null;
+            }
+            try {
+                Base.exec("DELETE FROM docente_materia WHERE id_DocMat = ?", Integer.parseInt(idDocMat));
+                res.redirect("/admin/asignar-docente?success=" + URLEncoder.encode("Asignación eliminada con éxito", "UTF-8"));
+                return null;
+            } catch (Exception e) {
+                e.printStackTrace();
+                res.redirect("/admin/asignar-docente?error=" + URLEncoder.encode("Error al eliminar asignación: " + e.getMessage(), "UTF-8"));
                 return null;
             }
         });

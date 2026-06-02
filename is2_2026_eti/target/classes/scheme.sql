@@ -32,12 +32,22 @@ CREATE TABLE docentes (
     dni INTEGER,
     titulo TEXT,
     rol TEXT CHECK(rol IN ('RESPONSABLE', 'JTP', 'AYUDANTE')),
-    id_facultad INTEGER,
 
     FOREIGN KEY (dni) REFERENCES persona(dni)
         ON DELETE CASCADE
-        ON UPDATE CASCADE,
-    FOREIGN KEY (id_facultad) REFERENCES facultad (id_facultad)
+        ON UPDATE CASCADE
+);
+
+DROP TABLE IF EXISTS docente_facultad;
+
+CREATE TABLE docente_facultad (
+    id_docente_facultad INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_docente INTEGER NOT NULL,
+    id_facultad INTEGER NOT NULL,
+
+    FOREIGN KEY (id_docente) REFERENCES docentes(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_facultad) REFERENCES facultad (id_facultad) ON DELETE CASCADE,
+    UNIQUE(id_docente, id_facultad)
 );
 
 DROP TABLE IF EXISTS alumnos;
@@ -47,11 +57,23 @@ CREATE TABLE alumnos (
     dni INTEGER,
     progreso FLOAT,
     fecha_registro DATE,
+    tipo_alumno VARCHAR(20) DEFAULT 'INGRESANTE',
 
     FOREIGN KEY (dni) REFERENCES persona(dni)
         ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    FOREIGN KEY (tipo_alumno) REFERENCES TipoAlumno(tipo)
+        ON DELETE SET DEFAULT
         ON UPDATE CASCADE
 );
+
+DROP TABLE IF EXISTS TipoAlumno;
+
+CREATE TABLE TipoAlumno (
+    tipo VARCHAR(20) PRIMARY KEY
+);
+INSERT INTO TipoAlumno (tipo) VALUES ('INGRESANTE'), ('AVANZADO');
+
 
 DROP TABLE IF EXISTS carrera;
 
@@ -61,7 +83,7 @@ CREATE TABLE carrera (
     id_facultad INTEGER,
     cant_anios INTEGER NOT NULL,
 
-    FOREIGN KEY (id_facultad) REFERENCES facultad (id_facultad)
+    FOREIGN KEY (id_facultad) REFERENCES facultad (id_facultad) ON DELETE CASCADE
 );
 
 DROP TABLE IF EXISTS materia;
@@ -75,6 +97,14 @@ CREATE TABLE materia (
     periodo TEXT
 );
 
+DROP TABLE IF EXISTS EstadoInscripcion;
+
+CREATE TABLE EstadoInscripcion (
+    estado VARCHAR(20) PRIMARY KEY
+);
+INSERT INTO EstadoInscripcion (estado) VALUES ('CURSANDO'), ('REGULAR'), ('APROBADA'), ('LIBRE'), ('DESAPROBADA');
+
+
 DROP TABLE IF EXISTS plan_estudio;
 
 CREATE TABLE plan_estudio (
@@ -82,8 +112,8 @@ CREATE TABLE plan_estudio (
     id_carrera INTEGER NOT NULL,
     id_materia INTEGER NOT NULL,
 
-    FOREIGN KEY (id_carrera) REFERENCES carrera(id_carrera),
-    FOREIGN KEY (id_materia) REFERENCES materia(id_materia)
+    FOREIGN KEY (id_carrera) REFERENCES carrera(id_carrera) ON DELETE CASCADE,
+    FOREIGN KEY (id_materia) REFERENCES materia(id_materia) ON DELETE CASCADE
 );
 
 DROP TABLE IF EXISTS docente_materia;
@@ -93,8 +123,8 @@ CREATE TABLE docente_materia (
     id_docente INTEGER NOT NULL,
     id_materia INTEGER NOT NULL,
 
-    FOREIGN KEY (id_docente) REFERENCES docentes(id),
-    FOREIGN KEY (id_materia) REFERENCES materia(id_materia)
+    FOREIGN KEY (id_docente) REFERENCES docentes(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_materia) REFERENCES materia(id_materia) ON DELETE CASCADE
 );
 
 DROP TABLE IF EXISTS inscripcion;
@@ -103,10 +133,11 @@ CREATE TABLE inscripcion (
     id_inscripcion INTEGER PRIMARY KEY AUTOINCREMENT,
     id_alumno INTEGER NOT NULL,
     id_materia INTEGER NOT NULL,
-    estado TEXT CHECK(estado IN ('CURSANDO', 'APROBADA', 'DESAPROBADA')),
+    estado VARCHAR(20) NOT NULL DEFAULT 'CURSANDO',
 
-    FOREIGN KEY (id_alumno) REFERENCES alumnos(id),
-    FOREIGN KEY (id_materia) REFERENCES materia(id_materia)
+    FOREIGN KEY (id_alumno) REFERENCES alumnos(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_materia) REFERENCES materia(id_materia) ON DELETE CASCADE,
+    FOREIGN KEY (estado) REFERENCES EstadoInscripcion(estado) ON UPDATE CASCADE
 );
 
 DROP TABLE IF EXISTS notas;
@@ -114,11 +145,19 @@ DROP TABLE IF EXISTS notas;
 CREATE TABLE notas (
     id_notas INTEGER PRIMARY KEY AUTOINCREMENT,
     id_inscripcion INTEGER NOT NULL,
-    nota_parcial FLOAT,
-    nota_final FLOAT,
+    valor INTEGER,
+    tipo_nota VARCHAR(20) NOT NULL,
 
-    FOREIGN KEY (id_inscripcion) REFERENCES inscripcion(id_inscripcion)
+    FOREIGN KEY (id_inscripcion) REFERENCES inscripcion(id_inscripcion) ON DELETE CASCADE,
+    FOREIGN KEY (tipo_nota) REFERENCES TipoNota(tipo) ON UPDATE CASCADE
 );
+
+DROP TABLE IF EXISTS TipoNota;
+
+CREATE TABLE TipoNota (
+    tipo VARCHAR(20) PRIMARY KEY
+);
+INSERT INTO TipoNota (tipo) VALUES ('PARCIAL'), ('FINAL'), ('TP');
 
 DROP TABLE IF EXISTS alumno_carrera;
 
@@ -127,8 +166,8 @@ CREATE TABLE alumno_carrera (
     id_alumno INTEGER NOT NULL,
     id_carrera INTEGER NOT NULL,
 
-    FOREIGN KEY (id_alumno) REFERENCES alumnos(id),
-    FOREIGN KEY (id_carrera) REFERENCES carrera(id_carrera)
+    FOREIGN KEY (id_alumno) REFERENCES alumnos(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_carrera) REFERENCES carrera(id_carrera) ON DELETE CASCADE
 );
 
 DROP TABLE IF EXISTS facultad;

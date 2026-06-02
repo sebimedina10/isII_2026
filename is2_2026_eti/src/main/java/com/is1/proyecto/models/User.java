@@ -2,8 +2,10 @@ package com.is1.proyecto.models;
 
 import org.javalite.activejdbc.Model;
 import org.javalite.activejdbc.annotations.Table;
+import org.javalite.activejdbc.annotations.IdName;
 
-@Table("users") // Esta anotación asocia explícitamente el modelo 'User' con la tabla 'users' en la DB.
+@Table("users")
+@IdName("id_user")
 public class User extends Model {
 
     // ActiveJDBC mapea automáticamente las columnas de la tabla 'users'
