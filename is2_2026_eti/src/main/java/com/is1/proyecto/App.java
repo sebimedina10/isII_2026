@@ -1,26 +1,25 @@
 package com.is1.proyecto; // Define el paquete de la aplicación, debe coincidir con la estructura de carpetas.
 
 // Importaciones necesarias para la aplicación Spark
-import java.util.HashMap; // Utilidad para serializar/deserializar objetos Java a/desde JSON.
-import java.util.Map; // Importa los métodos estáticos principales de Spark (get, post, before, after, etc.).
+import java.net.URLEncoder; // Utilidad para serializar/deserializar objetos Java a/desde JSON.
+import java.util.HashMap; // Importa los métodos estáticos principales de Spark (get, post, before, after, etc.).
 import java.util.List;
-import org.javalite.activejdbc.Base; // Clase central de ActiveJDBC para gestionar la conexión a la base de datos.
-import org.mindrot.jbcrypt.BCrypt; // Utilidad para hashear y verificar contraseñas de forma segura.
+import java.util.Map; // Clase central de ActiveJDBC para gestionar la conexión a la base de datos.
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import org.javalite.activejdbc.Base; // Utilidad para hashear y verificar contraseñas de forma segura.
+import org.mindrot.jbcrypt.BCrypt;
 
-import com.fasterxml.jackson.databind.ObjectMapper; // Representa un modelo de datos y el nombre de la vista a renderizar.
-import com.is1.proyecto.config.DBConfigSingleton; // Motor de plantillas Mustache para Spark.
-import com.is1.proyecto.models.Alumno; // Para crear mapas de datos (modelos para las plantillas).
-import com.is1.proyecto.models.Docente;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.is1.proyecto.config.DBConfigSingleton; // Representa un modelo de datos y el nombre de la vista a renderizar.
+import com.is1.proyecto.models.Alumno; // Motor de plantillas Mustache para Spark.
+import com.is1.proyecto.models.Docente; // Para crear mapas de datos (modelos para las plantillas).
 import com.is1.proyecto.models.Persona;
 import com.is1.proyecto.models.User;
 
-import spark.ModelAndView; // Interfaz Map, utilizada para Map.of() o HashMap.
-import static spark.Spark.after; // Clase Singleton para la configuración de la base de datos.
-import static spark.Spark.before; // Modelo de ActiveJDBC que representa la tabla 'users'.
-import static spark.Spark.get;
+import spark.ModelAndView;
+import static spark.Spark.after; // Interfaz Map, utilizada para Map.of() o HashMap.
+import static spark.Spark.before; // Clase Singleton para la configuración de la base de datos.
+import static spark.Spark.get; // Modelo de ActiveJDBC que representa la tabla 'users'.
 import static spark.Spark.halt;
 import static spark.Spark.port;
 import static spark.Spark.post;
@@ -108,6 +107,10 @@ public class App {
                         System.out.println("DEBUG AUTH: Acceso prohibido a " + path + " para el rol " + role);
                         halt(403, "No tienes permisos de Alumno para acceder a esta sección.");
                     }
+                }else if (path.equals("/profile")) {
+                    if (!"ALUMNO".equalsIgnoreCase(role) && !"DOCENTE".equalsIgnoreCase(role)) {
+                        halt(403, "No tienes permisos para acceder a esta sección.");
+                    }    
                 }
             });
 
@@ -652,13 +655,13 @@ post("/admin/carrera", (req, res) -> {
 
                             // 4. Guardar la materia
                             Base.exec("INSERT INTO materia (codigo, nombre_materia, anio_pertenece, cant_horas, periodo) VALUES (?, ?, ?, ?, ?)",
-                                      codigo, nombreMat, anioPerteneciente, horas, cuatri);
+                                    codigo, nombreMat, anioPerteneciente, horas, cuatri);
 
                             Object idMateria = Base.firstCell("SELECT last_insert_rowid()");
 
                             // 5. Relacionar Carrera con Materia
                             Base.exec("INSERT INTO plan_estudio (id_carrera, id_materia) VALUES (?, ?)",
-                                      idCarrera, idMateria);
+                                    idCarrera, idMateria);
                         }
                     }
                 }
@@ -756,7 +759,7 @@ post("/admin/carrera", (req, res) -> {
                 }
 
                 Base.exec("INSERT INTO docente_materia (id_docente, id_materia) VALUES (?, ?)",
-                          Integer.parseInt(idDocente), Integer.parseInt(idMateria));
+                        Integer.parseInt(idDocente), Integer.parseInt(idMateria));
 
                 res.redirect("/admin/asignar-docente?id_facultad=" + idFacultad + "&success=" + URLEncoder.encode("Asignación realizada con éxito", "UTF-8"));
                 return null;
@@ -783,7 +786,62 @@ post("/admin/carrera", (req, res) -> {
                 res.redirect("/admin/asignar-docente?error=" + URLEncoder.encode("Error al eliminar asignación: " + e.getMessage(), "UTF-8"));
                 return null;
             }
-        });
+        }); 
 
+
+    // GET: Muestra el perfil del alumno logueado
+    get("/profile", (req, res) -> {
+    Map<String, Object> model = new HashMap<>();
+
+    String sessionUserId = req.session().attribute("userId");
+    User user = User.findFirst("id_user = ?", sessionUserId);
+
+    Object idPersona = user.get("id_persona");
+    if (idPersona == null) {
+        res.redirect("/datos?error=" + URLEncoder.encode("Primero completá tus datos personales.", "UTF-8"));
+        return null;
+    }
+
+    Persona p = Persona.findById(idPersona);
+    if (p == null) {
+        res.redirect("/datos?error=" + URLEncoder.encode("No se encontraron datos."));
+        return null;
+    }
+
+    // Datos personales
+    model.put("nombre",    p.get("nombre"));
+    model.put("apellido",  p.get("apellido"));
+    model.put("dni",       p.get("dni"));
+    model.put("email",     p.get("email"));
+    model.put("telefono",  p.get("telefono"));
+    model.put("username",  user.get("name"));
+
+    // Fecha de nacimiento formateada
+    if (p.get("fecha_nacimiento") != null) {
+        String fecha = p.getString("fecha_nacimiento"); // YYYY-MM-DD
+        String[] partes = fecha.split("-");
+        if (partes.length == 3) {
+            model.put("fecha_nacimiento", partes[2] + "/" + partes[1] + "/" + partes[0]);
+        }
+    }
+
+    String tipo = user.getString("type");
+model.put("isAlumno", "ALUMNO".equalsIgnoreCase(tipo));
+model.put("isDocente", "DOCENTE".equalsIgnoreCase(tipo));
+
+if ("ALUMNO".equalsIgnoreCase(tipo)) {
+    Alumno al = Alumno.findFirst("dni = ?", p.get("dni"));
+    if (al != null) {
+        model.put("progreso", al.get("progreso"));
+    }
+} else if ("DOCENTE".equalsIgnoreCase(tipo)) {
+    Docente d = Docente.findFirst("dni = ?", p.get("dni"));
+    if (d != null) {
+        model.put("titulo", d.get("titulo"));
+        model.put("rol", d.get("rol"));
+    }
+}
+    return new ModelAndView(model, "profile.mustache");
+    }, new MustacheTemplateEngine());
     } // Fin del método main
 } // Fin de la clase App
