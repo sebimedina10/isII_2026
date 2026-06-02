@@ -18,6 +18,7 @@ Accedé a la documentación detallada de cada etapa del desarrollo:
 - 📘 [Análisis de Requerimientos](documentacion/Requirements.md)
 - 🎨 [Diseño y Arquitectura](documentacion/Desing.md)
 - 🛡️ [Auditoría y Gestión de Riesgos](documentacion/Auditoria.md)
+- 📅 [Planificación y Estimación](documentacion/Planificacion_y_Estimacion.md)
 - 📄 [Documento Integrador](documentacion/IS2_Proyecto.md)
 
 ---
@@ -61,12 +62,22 @@ isII_2026/
 
 ### Requisitos
 
-- Java 21 o superior
-- Maven 3.8 o superior
+* Java 21 o superior
+* Maven 3.8 o superior
+* SQLite3 instalado en el sistema
 
 ---
 
-### 1. Compilar el proyecto
+## 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/sebimedina10/isII_2026.git
+cd isII_2026/is2_2026_eti
+```
+
+---
+
+## 2. Compilar el proyecto
 
 ```bash
 mvn clean install
@@ -74,7 +85,23 @@ mvn clean install
 
 ---
 
-### 2. Ejecutar la aplicación
+## 3. Inicializar la base de datos
+
+### Crear la estructura de tablas
+
+```bash
+sqlite3 db/dev.db < src/main/resources/schema.sql
+```
+
+### Cargar datos iniciales
+
+```bash
+sqlite3 db/dev.db < src/main/resources/seed.sql
+```
+
+---
+
+## 4. Ejecutar la aplicación
 
 ```bash
 mvn exec:java
@@ -82,7 +109,7 @@ mvn exec:java
 
 ---
 
-### 3. Acceder al sistema
+## 5. Acceder al sistema
 
 Una vez iniciado el servidor, abrir en el navegador:
 
@@ -91,6 +118,7 @@ http://localhost:8080
 ```
 
 ---
+
 
 ## Arquitectura Utilizada
 
