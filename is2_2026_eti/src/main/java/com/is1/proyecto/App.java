@@ -2,11 +2,11 @@ package com.is1.proyecto; // Define el paquete de la aplicación, debe coincidir
 
 // Importaciones necesarias para la aplicación Spark
 import java.net.URLEncoder; // Utilidad para serializar/deserializar objetos Java a/desde JSON.
-import java.util.HashMap; // Importa los métodos estáticos principales de Spark (get, post, before, after, etc.).
-import java.util.List;
-import java.util.Map; // Clase central de ActiveJDBC para gestionar la conexión a la base de datos.
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.StandardCharsets; // Importa los métodos estáticos principales de Spark (get, post, before, after, etc.).
 import java.util.ArrayList;
+import java.util.HashMap; // Clase central de ActiveJDBC para gestionar la conexión a la base de datos.
+import java.util.List;
+import java.util.Map;
 
 import org.javalite.activejdbc.Base; // Utilidad para hashear y verificar contraseñas de forma segura.
 import org.mindrot.jbcrypt.BCrypt;
@@ -1152,5 +1152,191 @@ public class App {
             }
         });
 
-    } // Fin del método main
+        // GET: Materias asignadas al docente que ingresó
+    get("/docente/materias", (req, res) -> {
+        try {
+        Object sessionUserId = req.session().attribute("userId");
+        if (sessionUserId == null) {
+            res.redirect("/?error=" + URLEncoder.encode("Debes iniciar sesión.", StandardCharsets.UTF_8));
+            return null;
+        }
+
+        User user = User.findFirst("id_user = ?", sessionUserId);
+        Persona persona = Persona.findById(user.get("id_persona"));
+        Docente docente = Docente.findFirst("dni = ?", persona.get("dni"));
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("userName", user.get("name"));
+        model.put("isDocente", true);
+
+        if (docente == null) {
+            model.put("error", "No se encontró el perfil de docente.");
+            model.put("hayMaterias", false);
+            return new ModelAndView(model, "docente_materias.mustache");
+        }
+
+        List<Map> materias = Base.findAll(
+            "SELECT m.id_materia, m.nombre_materia, m.codigo, m.anio_pertenece, m.periodo, m.cant_horas, " +
+            "c.nombre_carrera " +
+            "FROM materia m " +
+            "JOIN docente_materia dm ON m.id_materia = dm.id_materia " +
+            "JOIN plan_estudio pe ON m.id_materia = pe.id_materia " +
+            "JOIN carrera c ON pe.id_carrera = c.id_carrera " +
+            "WHERE dm.id_docente = ? " +
+            "ORDER BY m.anio_pertenece, m.nombre_materia",
+            docente.getId());
+
+        model.put("materias", materias);
+        model.put("hayMaterias", !materias.isEmpty());
+
+        if (req.queryParams("error") != null)
+            model.put("error", req.queryParams("error"));
+
+        return new ModelAndView(model, "docente_materias.mustache");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            res.redirect("/dashboard?error=" + URLEncoder.encode("Error al obtener materias.", StandardCharsets.UTF_8));
+            return null;
+        }
+    }, new MustacheTemplateEngine());
+    
+// GET: Cargar notas
+get("/docente/notas", (req, res) -> {
+    try {
+        Object sessionUserId = req.session().attribute("userId");
+        if (sessionUserId == null) {
+            res.redirect("/?error=" + URLEncoder.encode("Debes iniciar sesión.", StandardCharsets.UTF_8));
+            return null;
+        }
+
+        User user = User.findFirst("id_user = ?", sessionUserId);
+        Persona persona = Persona.findById(user.get("id_persona"));
+        Docente docente = Docente.findFirst("dni = ?", persona.get("dni"));
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("userName", user.get("name"));
+        model.put("isDocente", true);
+
+        if (docente == null) {
+            model.put("error", "No se encontró el perfil de docente.");
+            return new ModelAndView(model, "docente_notas.mustache");
+        }
+
+        String idMateriaParam = req.queryParams("id_materia");
+
+        // Materias asignadas al docente
+        List<Map> materias = Base.findAll(
+            "SELECT m.id_materia, m.nombre_materia " +
+            "FROM materia m " +
+            "JOIN docente_materia dm ON m.id_materia = dm.id_materia " +
+            "WHERE dm.id_docente = ? " +
+            "ORDER BY m.nombre_materia",
+            docente.getId());
+
+        for (Map m : materias) {
+            if (idMateriaParam != null && String.valueOf(m.get("id_materia")).equals(idMateriaParam)) {
+                m.put("selected", true);
+            }
+        }
+
+        model.put("materias", materias);
+        model.put("hayMaterias", !materias.isEmpty());
+        model.put("materiaSeleccionada", idMateriaParam);
+
+        // Si hay materia seleccionada, traer alumnos inscriptos con sus notas
+        if (idMateriaParam != null && !idMateriaParam.isEmpty()) {
+            List<Map> alumnos = Base.findAll(
+                "SELECT i.id_inscripcion, p.apellido, p.nombre, p.dni, i.estado " +
+                "FROM inscripcion i " +
+                "JOIN alumnos a ON i.id_alumno = a.id " +
+                "JOIN persona p ON a.dni = p.dni " +
+                "WHERE i.id_materia = ? " +
+                "ORDER BY p.apellido, p.nombre",
+                idMateriaParam);
+
+            for (Map alumno : alumnos) {
+                List<Map> notas = Base.findAll(
+                    "SELECT id_notas, valor, tipo_nota FROM notas WHERE id_inscripcion = ? ORDER BY tipo_nota",
+                    alumno.get("id_inscripcion"));
+                alumno.put("notas", notas);
+                alumno.put("hayNotas", !notas.isEmpty());
+            }
+
+            model.put("alumnos", alumnos);
+            model.put("hayAlumnos", !alumnos.isEmpty());
+        }
+
+        if (req.queryParams("error") != null)
+            model.put("error", req.queryParams("error"));
+        if (req.queryParams("success") != null)
+            model.put("success", req.queryParams("success"));
+
+        return new ModelAndView(model, "docente_notas.mustache");
+
+    } catch (Exception e) {
+        e.printStackTrace();
+        res.redirect("/dashboard?error=" + URLEncoder.encode("Error al cargar notas.", StandardCharsets.UTF_8));
+        return null;
+    }
+}, new MustacheTemplateEngine());
+
+// POST: Guardar nota
+post("/docente/notas/cargar", (req, res) -> {
+    String idInscripcion = req.queryParams("id_inscripcion");
+    String valor         = req.queryParams("valor");
+    String tipoNota      = req.queryParams("tipo_nota");
+    String idMateria     = req.queryParams("id_materia");
+    String redirectBase  = "/docente/notas?id_materia=" + (idMateria != null ? idMateria : "");
+
+    try {
+        if (idInscripcion == null || valor == null || tipoNota == null ||
+            idInscripcion.isEmpty() || valor.isEmpty() || tipoNota.isEmpty()) {
+            res.redirect(redirectBase + "&error=" +
+                URLEncoder.encode("Todos los campos son obligatorios.", StandardCharsets.UTF_8));
+            return null;
+        }
+
+        int valorInt = Integer.parseInt(valor);
+        if (valorInt < 0 || valorInt > 10) {
+            res.redirect(redirectBase + "&error=" +
+                URLEncoder.encode("La nota debe estar entre 0 y 10.", StandardCharsets.UTF_8));
+            return null;
+        }
+
+        // Si ya existe nota del mismo tipo para esa inscripción, actualizar
+        List<Map> existe = Base.findAll(
+            "SELECT id_notas FROM notas WHERE id_inscripcion = ? AND tipo_nota = ?",
+            idInscripcion, tipoNota);
+
+        if (!existe.isEmpty()) {
+            Base.exec("UPDATE notas SET valor = ? WHERE id_inscripcion = ? AND tipo_nota = ?",
+                valorInt, idInscripcion, tipoNota);
+        } else {
+            Base.exec("INSERT INTO notas (id_inscripcion, valor, tipo_nota) VALUES (?, ?, ?)",
+                idInscripcion, valorInt, tipoNota);
+        }
+
+        res.redirect(redirectBase + "&success=" +
+            URLEncoder.encode("Nota guardada correctamente.", StandardCharsets.UTF_8));
+        return null;
+
+    } catch (NumberFormatException e) {
+        res.redirect(redirectBase + "&error=" +
+            URLEncoder.encode("La nota debe ser un número.", StandardCharsets.UTF_8));
+        return null;
+    } catch (Exception e) {
+        e.printStackTrace();
+        res.redirect(redirectBase + "&error=" +
+            URLEncoder.encode("Error al guardar la nota.", StandardCharsets.UTF_8));
+        return null;
+    }
+});
+
+
+} // Fin del método main
+
+
+
+
 } // Fin de la clase App

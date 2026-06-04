@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Materias</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+
+<div class="max-w-5xl mx-auto">
+
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-200 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-indigo-700">Mis Materias</h1>
+            <p class="text-gray-500 mt-1">Materias asignadas por el administrador.</p>
+        </div>
+        <a href="/dashboard" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium">← Volver</a>
+    </div>
+
+    {{#error}}
+    <div class="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-4">⚠️ {{.}}</div>
+    {{/error}}
+
+    {{#hayMaterias}}
+    <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-indigo-50 text-indigo-700 uppercase text-xs font-semibold">
+                <tr>
+                    <th class="px-5 py-3 text-left">Materia</th>
+                    <th class="px-5 py-3 text-left">Código</th>
+                    <th class="px-5 py-3 text-left">Carrera</th>
+                    <th class="px-5 py-3 text-left">Año</th>
+                    <th class="px-5 py-3 text-left">Período</th>
+                    <th class="px-5 py-3 text-left">Horas</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {{#materias}}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-5 py-3 font-medium text-gray-800">{{nombre_materia}}</td>
+                    <td class="px-5 py-3 text-gray-500">{{codigo}}</td>
+                    <td class="px-5 py-3 text-gray-600">{{nombre_carrera}}</td>
+                    <td class="px-5 py-3 text-gray-600">{{anio_pertenece}}°</td>
+                    <td class="px-5 py-3 text-gray-600">{{periodo}}</td>
+                    <td class="px-5 py-3 text-gray-600">{{cant_horas}}h</td>
+                </tr>
+                {{/materias}}
+            </tbody>
+        </table>
+    </div>
+    {{/hayMaterias}}
+
+    {{^hayMaterias}}
+    <div class="bg-white rounded-xl shadow-md border border-gray-200 p-8 text-center">
+        <p class="text-gray-500 italic">No tenés materias asignadas aún.</p>
+    </div>
+    {{/hayMaterias}}
+
+</div>
+</body>
+</html>
