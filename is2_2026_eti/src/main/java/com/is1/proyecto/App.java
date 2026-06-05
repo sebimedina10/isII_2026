@@ -1333,6 +1333,62 @@ post("/docente/notas/cargar", (req, res) -> {
     }
 });
 
+// GET: Muestra las materias y notas del alumno logueado
+get("/alumno/materias", (req, res) -> {
+    Map<String, Object> model = new HashMap<>();
+
+    String sessionUserId = req.session().attribute("userId");
+    User user = User.findFirst("id_user = ?", sessionUserId);
+
+    Object idPersona = user.get("id_persona");
+    if (idPersona == null) {
+        res.redirect("/datos?error=" + URLEncoder.encode("Primero completá tus datos personales.", "UTF-8"));
+        return null;
+    }
+
+    Persona p = Persona.findById(idPersona);
+    Alumno al = Alumno.findFirst("dni = ?", p.get("dni"));
+
+    if (al == null) {
+        res.redirect("/datos?error=" + URLEncoder.encode("No se encontró el alumno.", "UTF-8"));
+        return null;
+    }
+
+    // Materias inscriptas con su estado
+    List<Map> materias = Base.findAll(
+        "SELECT m.nombre_materia, m.codigo, m.anio_pertenece, m.periodo, " +
+        "i.estado, i.id_inscripcion " +
+        "FROM inscripcion i " +
+        "JOIN materia m ON i.id_materia = m.id_materia " +
+        "WHERE i.id_alumno = ? " +
+        "ORDER BY m.anio_pertenece, m.nombre_materia", al.getId());
+
+    // Para cada materia, cargar sus notas
+    for (Map materia : materias) {
+        List<Map> notas = Base.findAll(
+            "SELECT valor, tipo_nota FROM notas WHERE id_inscripcion = ?",
+            materia.get("id_inscripcion"));
+        materia.put("notas", notas);
+        materia.put("tieneNotas", !notas.isEmpty());
+    }
+
+    model.put("username", user.get("name"));
+    model.put("materias", materias);
+    model.put("tieneMaterias", !materias.isEmpty());
+
+    return new ModelAndView(model, "alumno_materias.mustache");
+}, new MustacheTemplateEngine());
+
+
+
+
+
+
+
+
+
+
+
 
 } // Fin del método main
 
