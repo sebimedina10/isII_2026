@@ -179,3 +179,68 @@ JOIN materia m
     ON m.id_materia = pe.id_materia
 ORDER BY c.nombre_carrera, m.anio_pertenece;
 
+
+-- =========================================================================
+-- SEED DE USUARIOS, DOCENTES, ALUMNOS Y RELACIONES ACADÉMICAS
+-- Contraseña para todos los usuarios: 123456
+-- (Hash BCrypt: $2a$10$abcdefghijklmnopqrstuOUA0wxOWsBQRGEiQVXQvtvZeQCKZP7Ny)
+-- =========================================================================
+
+-- 1. PERSONAS
+INSERT INTO persona (dni, apellido, nombre, email, telefono, fecha_nacimiento) VALUES
+(11111111, 'General', 'Admin', 'admin@unrc.edu.ar', '3584000101', '1985-05-15'),
+(22222222, 'Feynman', 'Richard', 'feynman@unrc.edu.ar', '3584000102', '1918-05-11'),
+(33333333, 'Curie', 'Marie', 'curie@unrc.edu.ar', '3584000103', '1867-11-07'),
+(44444444, 'Olivero', 'Leandro', 'leandro@unrc.edu.ar', '3584000104', '2001-09-20'),
+(55555555, 'Perez', 'Juan', 'juan@unrc.edu.ar', '3584000105', '2002-01-15');
+
+-- 2. USUARIOS (Vínculo con Persona y Roles)
+INSERT INTO users (name, password, id_persona, type) VALUES
+('admin', '$2a$10$abcdefghijklmnopqrstuOUA0wxOWsBQRGEiQVXQvtvZeQCKZP7Ny', 1, 'ADMINISTRADOR'),
+('richard', '$2a$10$abcdefghijklmnopqrstuOUA0wxOWsBQRGEiQVXQvtvZeQCKZP7Ny', 2, 'DOCENTE'),
+('marie', '$2a$10$abcdefghijklmnopqrstuOUA0wxOWsBQRGEiQVXQvtvZeQCKZP7Ny', 3, 'DOCENTE'),
+('leandro', '$2a$10$abcdefghijklmnopqrstuOUA0wxOWsBQRGEiQVXQvtvZeQCKZP7Ny', 4, 'ALUMNO'),
+('juan', '$2a$10$abcdefghijklmnopqrstuOUA0wxOWsBQRGEiQVXQvtvZeQCKZP7Ny', 5, 'ALUMNO');
+
+-- 3. DOCENTES
+INSERT INTO docentes (dni, titulo, rol) VALUES
+(22222222, 'Licenciado en Física', 'RESPONSABLE'),
+(33333333, 'Doctora en Química', 'JTP');
+
+-- Asignar facultades iniciales a los docentes
+-- Richard en Ciencias Exactas (id_facultad = 1) e Ingeniería (id_facultad = 3)
+INSERT INTO docente_facultad (id_docente, id_facultad) VALUES
+(1, 1),
+(1, 3),
+(2, 1);
+
+-- 4. ALUMNOS
+INSERT INTO alumnos (dni, progreso, fecha_registro, tipo_alumno) VALUES
+(44444444, 0.0, '2026-03-01', 'INGRESANTE'),
+(55555555, 0.0, '2026-03-02', 'INGRESANTE');
+
+-- 5. INSCRIPCIÓN DE ALUMNOS A CARRERA
+-- Ambos anotados a Analista en Computación
+INSERT INTO alumno_carrera (id_alumno, id_carrera)
+SELECT al.id, c.id_carrera 
+FROM alumnos al, carrera c 
+WHERE al.dni IN (44444444, 55555555) 
+AND c.nombre_carrera = 'Analista en Computación';
+
+-- 6. ASIGNACIÓN DOCENTE A MATERIA
+-- Richard Feynman asignado a Ingeniería de Software II (Código: 3387)
+INSERT INTO docente_materia (id_docente, id_materia)
+SELECT d.id, m.id_materia 
+FROM docentes d, materia m 
+WHERE d.dni = 22222222 
+AND m.codigo = '3387';
+
+-- 7. INSCRIPCIÓN DE ALUMNO A MATERIA
+-- Leandro inscripto a Ingeniería de Software II (Código: 3387) en estado CURSANDO
+INSERT INTO inscripcion (id_alumno, id_materia, estado)
+SELECT al.id, m.id_materia, 'CURSANDO'
+FROM alumnos al, materia m
+WHERE al.dni = 44444444
+AND m.codigo = '3387';
+
+

@@ -165,6 +165,7 @@ CREATE TABLE alumno_carrera (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     id_alumno INTEGER NOT NULL,
     id_carrera INTEGER NOT NULL,
+    fecha_inscripcion DATE,
 
     FOREIGN KEY (id_alumno) REFERENCES alumnos(id) ON DELETE CASCADE,
     FOREIGN KEY (id_carrera) REFERENCES carrera(id_carrera) ON DELETE CASCADE

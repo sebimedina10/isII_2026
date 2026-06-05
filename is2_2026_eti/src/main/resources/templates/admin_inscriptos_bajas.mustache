@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscriptos y Bajas - Administrador</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+    <div class="max-w-6xl mx-auto bg-white p-8 rounded-lg shadow-lg">
+        
+        <!-- Botón Volver -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">Panel de Inscriptos y Bajas</h1>
+            <a href="/dashboard" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition">
+                Volver al Dashboard
+            </a>
+        </div>
+
+        {{#success}}
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            {{success}}
+        </div>
+        {{/success}}
+
+        {{#error}}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {{error}}
+        </div>
+        {{/error}}
+
+        <!-- SECCIÓN 1: Inscriptos por Materia -->
+        <div class="bg-blue-50 border border-blue-200 p-6 rounded-lg mb-8 shadow-sm">
+            <h2 class="text-2xl font-bold text-blue-800 mb-4">1. Alumnos Inscriptos por Materia</h2>
+            <form method="GET" action="/admin/inscriptos-bajas" class="flex gap-4 items-end mb-6">
+                <div class="flex-1">
+                    <label class="block text-gray-700 font-bold mb-2">Seleccione una Materia:</label>
+                    <select name="id_materia" class="w-full p-2 border border-gray-300 rounded-md bg-white">
+                        <option value="">-- Seleccionar Materia --</option>
+                        {{#materias}}
+                        <option value="{{id_materia}}" {{#selected}}selected{{/selected}}>
+                            {{nombre_materia}} ({{codigo}})
+                        </option>
+                        {{/ materias}}
+                    </select>
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition">
+                    Ver Alumnos
+                </button>
+            </form>
+
+            {{#materiaSeleccionada}}
+            <h3 class="text-lg font-semibold text-gray-700 mb-3">
+                Listado para la materia: <span class="text-blue-600 font-bold">{{materiaSeleccionada.nombre_materia}}</span>
+            </h3>
+            {{#hasInscriptos}}
+            <table class="w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                <thead class="bg-blue-600 text-white">
+                    <tr>
+                        <th class="py-2 px-4 text-left">DNI</th>
+                        <th class="py-2 px-4 text-left">Nombre</th>
+                        <th class="py-2 px-4 text-left">Apellido</th>
+                        <th class="py-2 px-4 text-left">Tipo</th>
+                        <th class="py-2 px-4 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {{#inscriptos}}
+                    <tr>
+                        <td class="py-2 px-4">{{dni}}</td>
+                        <td class="py-2 px-4">{{nombre}}</td>
+                        <td class="py-2 px-4">{{apellido}}</td>
+                        <td class="py-2 px-4">{{tipo_alumno}}</td>
+                        <td class="py-2 px-4 text-center">
+                            <form method="POST" action="/admin/baja-inscripcion" onsubmit="return confirm('¿Dar de baja esta inscripción?');" style="display:inline;">
+                                <input type="hidden" name="id_inscripcion" value="{{id_inscripcion}}">
+                                <input type="hidden" name="id_materia" value="{{materiaSeleccionada.id_materia}}">
+                                <button type="submit" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm">
+                                    Desinscribir
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{/inscriptos}}
+                </tbody>
+            </table>
+            {{/hasInscriptos}}
+            {{^hasInscriptos}}
+            <p class="text-gray-500 italic">No hay alumnos inscriptos en esta materia.</p>
+            {{/hasInscriptos}}
+            {{/materiaSeleccionada}}
+        </div>
+
+        <!-- SECCIÓN 2: Listado de Alumnos del Sistema -->
+        <div class="bg-green-50 border border-green-200 p-6 rounded-lg mb-8 shadow-sm">
+            <h2 class="text-2xl font-bold text-green-800 mb-4">2. Bajas de Alumnos (Sistema)</h2>
+            <table class="w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                <thead class="bg-green-600 text-white">
+                    <tr>
+                        <th class="py-2 px-4 text-left">DNI</th>
+                        <th class="py-2 px-4 text-left">Nombre</th>
+                        <th class="py-2 px-4 text-left">Apellido</th>
+                        <th class="py-2 px-4 text-left">Tipo</th>
+                        <th class="py-2 px-4 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {{#alumnos}}
+                    <tr>
+                        <td class="py-2 px-4">{{dni}}</td>
+                        <td class="py-2 px-4">{{nombre}}</td>
+                        <td class="py-2 px-4">{{apellido}}</td>
+                        <td class="py-2 px-4">{{tipo_alumno}}</td>
+                        <td class="py-2 px-4 text-center">
+                            <form method="POST" action="/admin/baja-alumno" onsubmit="return confirm('¿Seguro que desea eliminar este alumno del sistema? Se perderán sus inscripciones y notas.');" style="display:inline;">
+                                <input type="hidden" name="id_alumno" value="{{id_alumno}}">
+                                <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition text-sm">
+                                    Dar de Baja
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{/alumnos}}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- SECCIÓN 3: Listado de Docentes del Sistema -->
+        <div class="bg-purple-50 border border-purple-200 p-6 rounded-lg shadow-sm">
+            <h2 class="text-2xl font-bold text-purple-800 mb-4">3. Bajas de Docentes (Sistema)</h2>
+            <table class="w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                <thead class="bg-purple-600 text-white">
+                    <tr>
+                        <th class="py-2 px-4 text-left">DNI</th>
+                        <th class="py-2 px-4 text-left">Nombre</th>
+                        <th class="py-2 px-4 text-left">Apellido</th>
+                        <th class="py-2 px-4 text-left">Título</th>
+                        <th class="py-2 px-4 text-left">Rol</th>
+                        <th class="py-2 px-4 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {{#docentes}}
+                    <tr>
+                        <td class="py-2 px-4">{{dni}}</td>
+                        <td class="py-2 px-4">{{nombre}}</td>
+                        <td class="py-2 px-4">{{apellido}}</td>
+                        <td class="py-2 px-4">{{titulo}}</td>
+                        <td class="py-2 px-4">{{rol}}</td>
+                        <td class="py-2 px-4 text-center">
+                            <form method="POST" action="/admin/baja-docente" onsubmit="return confirm('¿Seguro que desea eliminar este docente del sistema? Se perderán sus asignaciones.');" style="display:inline;">
+                                <input type="hidden" name="id_docente" value="{{id_docente}}">
+                                <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition text-sm">
+                                    Dar de Baja
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {{/docentes}}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</body>
+</html>
