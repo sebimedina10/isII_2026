@@ -19,7 +19,6 @@ Accedé a la documentación detallada de cada etapa del desarrollo:
 - 🎨 [Diseño y Arquitectura](documentacion/Desing.md)
 - 🛡️ [Auditoría y Gestión de Riesgos](documentacion/Auditoria.md)
 - 📅 [Planificación y Estimación](documentacion/Planificacion_y_Estimacion.md)
-- 📄 [Documento Integrador](documentacion/IS2_Proyecto.md)
 
 ---
 
