@@ -17,6 +17,8 @@ import com.is1.proyecto.models.Alumno; // Motor de plantillas Mustache para Spar
 import com.is1.proyecto.models.Docente; // Para crear mapas de datos (modelos para las plantillas).
 import com.is1.proyecto.models.Persona;
 import com.is1.proyecto.models.User;
+import com.is1.proyecto.models.Doc_Materia;
+import com.is1.proyecto.models.Nota;
 
 import spark.ModelAndView;
 import static spark.Spark.after; // Interfaz Map, utilizada para Map.of() o HashMap.
@@ -182,9 +184,12 @@ public class App {
 
             // 4. Datos para la vista
             String roleName = "";
-            if (isAdmin) roleName = "Administrador";
-            else if (isDocente) roleName = "Docente";
-            else if (isAlumno) roleName = "Alumno";
+            if (isAdmin)
+                roleName = "Administrador";
+            else if (isDocente)
+                roleName = "Docente";
+            else if (isAlumno)
+                roleName = "Alumno";
 
             model.put("username", currentUsername);
             model.put("roleName", roleName);
@@ -831,7 +836,8 @@ public class App {
                 return null;
             }
             try {
-                Base.exec("DELETE FROM docente_materia WHERE id_DocMat = ?", Integer.parseInt(idDocMat));
+                // Usar metodo helper en lugar de SQL crudo
+                Doc_Materia.deleteById(Integer.parseInt(idDocMat));
                 res.redirect("/admin/asignar-docente?success="
                         + URLEncoder.encode("Asignación eliminada con éxito", "UTF-8"));
                 return null;
@@ -846,15 +852,17 @@ public class App {
         // GET: Vista de listado por materia y bajas del sistema
         get("/admin/inscriptos-bajas", (req, res) -> {
             Map<String, Object> model = new HashMap<>();
-            
+
             // Pasar mensajes si existen
-            if (req.queryParams("success") != null) model.put("success", req.queryParams("success"));
-            if (req.queryParams("error") != null) model.put("error", req.queryParams("error"));
+            if (req.queryParams("success") != null)
+                model.put("success", req.queryParams("success"));
+            if (req.queryParams("error") != null)
+                model.put("error", req.queryParams("error"));
 
             // 1. Cargar todas las materias
             List<Map> materias = Base.findAll("SELECT id_materia, nombre_materia, codigo FROM materia");
             String idMateriaSel = req.queryParams("id_materia");
-            
+
             if (idMateriaSel != null && !idMateriaSel.isEmpty()) {
                 for (Map mat : materias) {
                     if (String.valueOf(mat.get("id_materia")).equals(idMateriaSel)) {
@@ -862,14 +870,15 @@ public class App {
                         model.put("materiaSeleccionada", mat);
                     }
                 }
-                
+
                 // Cargar alumnos inscriptos en la materia seleccionada
                 List<Map> inscriptos = Base.findAll(
-                    "SELECT i.id_inscripcion, p.nombre, p.apellido, p.dni, al.tipo_alumno " +
-                    "FROM inscripcion i " +
-                    "JOIN alumnos al ON i.id_alumno = al.id " +
-                    "JOIN persona p ON al.dni = p.dni " +
-                    "WHERE i.id_materia = ?", idMateriaSel);
+                        "SELECT i.id_inscripcion, p.nombre, p.apellido, p.dni, al.tipo_alumno " +
+                                "FROM inscripcion i " +
+                                "JOIN alumnos al ON i.id_alumno = al.id " +
+                                "JOIN persona p ON al.dni = p.dni " +
+                                "WHERE i.id_materia = ?",
+                        idMateriaSel);
                 model.put("inscriptos", inscriptos);
                 model.put("hasInscriptos", !inscriptos.isEmpty());
             }
@@ -877,16 +886,16 @@ public class App {
 
             // 2. Cargar todos los alumnos
             List<Map> alumnos = Base.findAll(
-                "SELECT al.id as id_alumno, p.nombre, p.apellido, p.dni, al.tipo_alumno " +
-                "FROM alumnos al " +
-                "JOIN persona p ON al.dni = p.dni");
+                    "SELECT al.id as id_alumno, p.nombre, p.apellido, p.dni, al.tipo_alumno " +
+                            "FROM alumnos al " +
+                            "JOIN persona p ON al.dni = p.dni");
             model.put("alumnos", alumnos);
 
             // 3. Cargar todos los docentes
             List<Map> docentes = Base.findAll(
-                "SELECT d.id as id_docente, p.nombre, p.apellido, p.dni, d.titulo, d.rol " +
-                "FROM docentes d " +
-                "JOIN persona p ON d.dni = p.dni");
+                    "SELECT d.id as id_docente, p.nombre, p.apellido, p.dni, d.titulo, d.rol " +
+                            "FROM docentes d " +
+                            "JOIN persona p ON d.dni = p.dni");
             model.put("docentes", docentes);
 
             return new ModelAndView(model, "admin_inscriptos_bajas.mustache");
@@ -897,7 +906,8 @@ public class App {
             String idInsc = req.queryParams("id_inscripcion");
             String idMat = req.queryParams("id_materia");
             Base.exec("DELETE FROM inscripcion WHERE id_inscripcion = ?", idInsc);
-            res.redirect("/admin/inscriptos-bajas?id_materia=" + idMat + "&success=" + URLEncoder.encode("Inscripción eliminada.", "UTF-8"));
+            res.redirect("/admin/inscriptos-bajas?id_materia=" + idMat + "&success="
+                    + URLEncoder.encode("Inscripción eliminada.", "UTF-8"));
             return null;
         });
 
@@ -905,7 +915,8 @@ public class App {
         post("/admin/baja-alumno", (req, res) -> {
             String idAlu = req.queryParams("id_alumno");
             Base.exec("DELETE FROM alumnos WHERE id = ?", idAlu);
-            res.redirect("/admin/inscriptos-bajas?success=" + URLEncoder.encode("Alumno eliminado del sistema.", "UTF-8"));
+            res.redirect(
+                    "/admin/inscriptos-bajas?success=" + URLEncoder.encode("Alumno eliminado del sistema.", "UTF-8"));
             return null;
         });
 
@@ -913,7 +924,8 @@ public class App {
         post("/admin/baja-docente", (req, res) -> {
             String idDoc = req.queryParams("id_docente");
             Base.exec("DELETE FROM docentes WHERE id = ?", idDoc);
-            res.redirect("/admin/inscriptos-bajas?success=" + URLEncoder.encode("Docente eliminado del sistema.", "UTF-8"));
+            res.redirect(
+                    "/admin/inscriptos-bajas?success=" + URLEncoder.encode("Docente eliminado del sistema.", "UTF-8"));
             return null;
         });
 
@@ -961,17 +973,17 @@ public class App {
                 Alumno al = Alumno.findFirst("dni = ?", p.get("dni"));
                 if (al != null) {
                     List<Object> carreraIds = Base.firstColumn(
-                        "SELECT id_carrera FROM alumno_carrera WHERE id_alumno = ?", al.getId());
+                            "SELECT id_carrera FROM alumno_carrera WHERE id_alumno = ?", al.getId());
                     double progreso = 0.0;
                     if (!carreraIds.isEmpty()) {
                         Object idCarrera = carreraIds.get(0);
                         long totalMateriasCarrera = Base.count("plan_estudio", "id_carrera = ?", idCarrera);
                         long materiasAprobadas = ((Number) Base.firstCell(
-                            "SELECT COUNT(DISTINCT i.id_materia) " +
-                            "FROM inscripcion i " +
-                            "JOIN plan_estudio pe ON i.id_materia = pe.id_materia " +
-                            "WHERE i.id_alumno = ? AND i.estado = 'APROBADA' AND pe.id_carrera = ?",
-                            al.getId(), idCarrera)).longValue();
+                                "SELECT COUNT(DISTINCT i.id_materia) " +
+                                        "FROM inscripcion i " +
+                                        "JOIN plan_estudio pe ON i.id_materia = pe.id_materia " +
+                                        "WHERE i.id_alumno = ? AND i.estado = 'APROBADA' AND pe.id_carrera = ?",
+                                al.getId(), idCarrera)).longValue();
                         if (totalMateriasCarrera > 0) {
                             progreso = ((double) materiasAprobadas / totalMateriasCarrera) * 100.0;
                         }
@@ -1175,13 +1187,8 @@ public class App {
                 Persona persona = Persona.findById(user.get("id_persona"));
                 Alumno alumno = Alumno.findFirst("dni = ?", persona.get("dni"));
 
-                Object idAlumnoReal = alumno.getId();
-                String fechaActual = java.time.LocalDate.now().toString();
-                Base.exec(
-                        "INSERT INTO alumno_carrera (id_alumno, id_carrera, fecha_inscripcion) VALUES (?, ?, ?)",
-                        idAlumnoReal,
-                        idCarrera,
-                        fechaActual);
+                // Usar metodo helper en lugar de SQL crudo
+                alumno.enrollInCarrera(Integer.parseInt(idCarrera));
                 res.redirect("/inscripcion/carrera?success="
                         + URLEncoder.encode("Inscripción a carrera realizada correctamente.", StandardCharsets.UTF_8));
                 return null;
@@ -1224,17 +1231,8 @@ public class App {
                 Object idAlumnoReal = alumno.getId();
 
                 for (String idMateria : materias) {
-                    List<Map> existe = Base.findAll(
-                            "SELECT * FROM inscripcion WHERE id_alumno = ? AND id_materia = ?",
-                            idAlumnoReal,
-                            idMateria);
-
-                    if (existe.isEmpty()) {
-                        Base.exec(
-                                "INSERT INTO inscripcion (id_alumno, id_materia) VALUES (?, ?)",
-                                idAlumnoReal,
-                                idMateria);
-                    }
+                    // Usar metodo helper en lugar de SQL crudo
+                    alumno.enrollInMateria(Integer.parseInt(idMateria));
                 }
                 res.redirect("/inscripcion/carrera?id_carrera=" + carrera +
                         "&anio_pertenece=" + anio +
@@ -1253,52 +1251,53 @@ public class App {
         // GET: Materias asignadas al docente que ingresó
         get("/docente/materias", (req, res) -> {
             try {
-            Object sessionUserId = req.session().attribute("userId");
-            if (sessionUserId == null) {
-                res.redirect("/?error=" + URLEncoder.encode("Debes iniciar sesión.", StandardCharsets.UTF_8));
-                return null;
-            }
+                Object sessionUserId = req.session().attribute("userId");
+                if (sessionUserId == null) {
+                    res.redirect("/?error=" + URLEncoder.encode("Debes iniciar sesión.", StandardCharsets.UTF_8));
+                    return null;
+                }
 
-            User user = User.findFirst("id_user = ?", sessionUserId);
-            Persona persona = Persona.findById(user.get("id_persona"));
-            Docente docente = Docente.findFirst("dni = ?", persona.get("dni"));
+                User user = User.findFirst("id_user = ?", sessionUserId);
+                Persona persona = Persona.findById(user.get("id_persona"));
+                Docente docente = Docente.findFirst("dni = ?", persona.get("dni"));
 
-            Map<String, Object> model = new HashMap<>();
-            model.put("userName", user.get("name"));
-            model.put("isDocente", true);
+                Map<String, Object> model = new HashMap<>();
+                model.put("userName", user.get("name"));
+                model.put("isDocente", true);
 
-            if (docente == null) {
-                model.put("error", "No se encontró el perfil de docente.");
-                model.put("hayMaterias", false);
+                if (docente == null) {
+                    model.put("error", "No se encontró el perfil de docente.");
+                    model.put("hayMaterias", false);
+                    return new ModelAndView(model, "docente_materias.mustache");
+                }
+
+                List<Map> materias = Base.findAll(
+                        "SELECT m.id_materia, m.nombre_materia, m.codigo, m.anio_pertenece, m.periodo, m.cant_horas, " +
+                                "c.nombre_carrera " +
+                                "FROM materia m " +
+                                "JOIN docente_materia dm ON m.id_materia = dm.id_materia " +
+                                "JOIN plan_estudio pe ON m.id_materia = pe.id_materia " +
+                                "JOIN carrera c ON pe.id_carrera = c.id_carrera " +
+                                "WHERE dm.id_docente = ? " +
+                                "ORDER BY m.anio_pertenece, m.nombre_materia",
+                        docente.getId());
+
+                model.put("materias", materias);
+                model.put("hayMaterias", !materias.isEmpty());
+
+                if (req.queryParams("error") != null)
+                    model.put("error", req.queryParams("error"));
+
                 return new ModelAndView(model, "docente_materias.mustache");
-            }
-
-            List<Map> materias = Base.findAll(
-                "SELECT m.id_materia, m.nombre_materia, m.codigo, m.anio_pertenece, m.periodo, m.cant_horas, " +
-                "c.nombre_carrera " +
-                "FROM materia m " +
-                "JOIN docente_materia dm ON m.id_materia = dm.id_materia " +
-                "JOIN plan_estudio pe ON m.id_materia = pe.id_materia " +
-                "JOIN carrera c ON pe.id_carrera = c.id_carrera " +
-                "WHERE dm.id_docente = ? " +
-                "ORDER BY m.anio_pertenece, m.nombre_materia",
-                docente.getId());
-
-            model.put("materias", materias);
-            model.put("hayMaterias", !materias.isEmpty());
-
-            if (req.queryParams("error") != null)
-                model.put("error", req.queryParams("error"));
-
-            return new ModelAndView(model, "docente_materias.mustache");
 
             } catch (Exception e) {
                 e.printStackTrace();
-                res.redirect("/dashboard?error=" + URLEncoder.encode("Error al obtener materias.", StandardCharsets.UTF_8));
+                res.redirect(
+                        "/dashboard?error=" + URLEncoder.encode("Error al obtener materias.", StandardCharsets.UTF_8));
                 return null;
             }
         }, new MustacheTemplateEngine());
-    
+
         // GET: Cargar notas
         get("/docente/notas", (req, res) -> {
             try {
@@ -1325,12 +1324,12 @@ public class App {
 
                 // Materias asignadas al docente
                 List<Map> materias = Base.findAll(
-                    "SELECT m.id_materia, m.nombre_materia " +
-                    "FROM materia m " +
-                    "JOIN docente_materia dm ON m.id_materia = dm.id_materia " +
-                    "WHERE dm.id_docente = ? " +
-                    "ORDER BY m.nombre_materia",
-                    docente.getId());
+                        "SELECT m.id_materia, m.nombre_materia " +
+                                "FROM materia m " +
+                                "JOIN docente_materia dm ON m.id_materia = dm.id_materia " +
+                                "WHERE dm.id_docente = ? " +
+                                "ORDER BY m.nombre_materia",
+                        docente.getId());
 
                 for (Map m : materias) {
                     if (idMateriaParam != null && String.valueOf(m.get("id_materia")).equals(idMateriaParam)) {
@@ -1345,18 +1344,18 @@ public class App {
                 // Si hay materia seleccionada, traer alumnos inscriptos con sus notas
                 if (idMateriaParam != null && !idMateriaParam.isEmpty()) {
                     List<Map> alumnos = Base.findAll(
-                        "SELECT i.id_inscripcion, p.apellido, p.nombre, p.dni, i.estado " +
-                        "FROM inscripcion i " +
-                        "JOIN alumnos a ON i.id_alumno = a.id " +
-                        "JOIN persona p ON a.dni = p.dni " +
-                        "WHERE i.id_materia = ? " +
-                        "ORDER BY p.apellido, p.nombre",
-                        idMateriaParam);
+                            "SELECT i.id_inscripcion, p.apellido, p.nombre, p.dni, i.estado " +
+                                    "FROM inscripcion i " +
+                                    "JOIN alumnos a ON i.id_alumno = a.id " +
+                                    "JOIN persona p ON a.dni = p.dni " +
+                                    "WHERE i.id_materia = ? " +
+                                    "ORDER BY p.apellido, p.nombre",
+                            idMateriaParam);
 
                     for (Map alumno : alumnos) {
                         List<Map> notas = Base.findAll(
-                            "SELECT id_notas, valor, tipo_nota FROM notas WHERE id_inscripcion = ? ORDER BY tipo_nota",
-                            alumno.get("id_inscripcion"));
+                                "SELECT id_notas, valor, tipo_nota FROM notas WHERE id_inscripcion = ? ORDER BY tipo_nota",
+                                alumno.get("id_inscripcion"));
                         alumno.put("notas", notas);
                         alumno.put("hayNotas", !notas.isEmpty());
                     }
@@ -1382,51 +1381,42 @@ public class App {
         // POST: Guardar nota
         post("/docente/notas/cargar", (req, res) -> {
             String idInscripcion = req.queryParams("id_inscripcion");
-            String valor         = req.queryParams("valor");
-            String tipoNota      = req.queryParams("tipo_nota");
-            String idMateria     = req.queryParams("id_materia");
-            String redirectBase  = "/docente/notas?id_materia=" + (idMateria != null ? idMateria : "");
+            String valor = req.queryParams("valor");
+            String tipoNota = req.queryParams("tipo_nota");
+            String idMateria = req.queryParams("id_materia");
+            String redirectBase = "/docente/notas?id_materia=" + (idMateria != null ? idMateria : "");
 
             try {
                 if (idInscripcion == null || valor == null || tipoNota == null ||
-                    idInscripcion.isEmpty() || valor.isEmpty() || tipoNota.isEmpty()) {
+                        idInscripcion.isEmpty() || valor.isEmpty() || tipoNota.isEmpty()) {
                     res.redirect(redirectBase + "&error=" +
-                        URLEncoder.encode("Todos los campos son obligatorios.", StandardCharsets.UTF_8));
+                            URLEncoder.encode("Todos los campos son obligatorios.", StandardCharsets.UTF_8));
                     return null;
                 }
 
                 int valorInt = Integer.parseInt(valor);
-                if (valorInt < 0 || valorInt > 10) {
+                if (!Nota.isValidScore(valorInt)) {
                     res.redirect(redirectBase + "&error=" +
-                        URLEncoder.encode("La nota debe estar entre 0 y 10.", StandardCharsets.UTF_8));
+                            URLEncoder.encode("La nota debe estar entre 0 y 10.", StandardCharsets.UTF_8));
                     return null;
                 }
 
-                // Si ya existe nota del mismo tipo para esa inscripción, actualizar
-                List<Map> existe = Base.findAll(
-                    "SELECT id_notas FROM notas WHERE id_inscripcion = ? AND tipo_nota = ?",
-                    idInscripcion, tipoNota);
-
-                if (!existe.isEmpty()) {
-                    Base.exec("UPDATE notas SET valor = ? WHERE id_inscripcion = ? AND tipo_nota = ?",
-                        valorInt, idInscripcion, tipoNota);
-                } else {
-                    Base.exec("INSERT INTO notas (id_inscripcion, valor, tipo_nota) VALUES (?, ?, ?)",
-                        idInscripcion, valorInt, tipoNota);
-                }
+                // Usar metodo helper en lugar de SQL crudo
+                Nota nota = new Nota();
+                nota.updateOrInsert(Integer.parseInt(idInscripcion), valorInt, tipoNota);
 
                 res.redirect(redirectBase + "&success=" +
-                    URLEncoder.encode("Nota guardada correctamente.", StandardCharsets.UTF_8));
+                        URLEncoder.encode("Nota guardada correctamente.", StandardCharsets.UTF_8));
                 return null;
 
             } catch (NumberFormatException e) {
                 res.redirect(redirectBase + "&error=" +
-                    URLEncoder.encode("La nota debe ser un número.", StandardCharsets.UTF_8));
+                        URLEncoder.encode("La nota debe ser un número.", StandardCharsets.UTF_8));
                 return null;
             } catch (Exception e) {
                 e.printStackTrace();
                 res.redirect(redirectBase + "&error=" +
-                    URLEncoder.encode("Error al guardar la nota.", StandardCharsets.UTF_8));
+                        URLEncoder.encode("Error al guardar la nota.", StandardCharsets.UTF_8));
                 return null;
             }
         });
@@ -1454,7 +1444,7 @@ public class App {
 
             // 1. Obtener la carrera del alumno para saber su plan y calcular progreso
             List<Object> carreraIds = Base.firstColumn(
-                "SELECT id_carrera FROM alumno_carrera WHERE id_alumno = ?", al.getId());
+                    "SELECT id_carrera FROM alumno_carrera WHERE id_alumno = ?", al.getId());
 
             long totalMateriasCarrera = 0;
             long materiasAprobadas = 0;
@@ -1463,19 +1453,19 @@ public class App {
             if (!carreraIds.isEmpty()) {
                 Object idCarrera = carreraIds.get(0);
                 totalMateriasCarrera = Base.count("plan_estudio", "id_carrera = ?", idCarrera);
-                
+
                 // Contar materias únicas aprobadas del plan
                 materiasAprobadas = ((Number) Base.firstCell(
-                    "SELECT COUNT(DISTINCT i.id_materia) " +
-                    "FROM inscripcion i " +
-                    "JOIN plan_estudio pe ON i.id_materia = pe.id_materia " +
-                    "WHERE i.id_alumno = ? AND i.estado = 'APROBADA' AND pe.id_carrera = ?",
-                    al.getId(), idCarrera)).longValue();
+                        "SELECT COUNT(DISTINCT i.id_materia) " +
+                                "FROM inscripcion i " +
+                                "JOIN plan_estudio pe ON i.id_materia = pe.id_materia " +
+                                "WHERE i.id_alumno = ? AND i.estado = 'APROBADA' AND pe.id_carrera = ?",
+                        al.getId(), idCarrera)).longValue();
 
                 if (totalMateriasCarrera > 0) {
                     progreso = ((double) materiasAprobadas / totalMateriasCarrera) * 100.0;
                 }
-                
+
                 // Guardar/Actualizar progreso en la base de datos para mantener consistencia
                 al.set("progreso", progreso);
                 al.saveIt();
@@ -1483,9 +1473,10 @@ public class App {
 
             // 2. Calcular el Promedio General de Notas Finales
             List<Map> notasFinales = Base.findAll(
-                "SELECT n.valor FROM notas n " +
-                "JOIN inscripcion i ON n.id_inscripcion = i.id_inscripcion " +
-                "WHERE i.id_alumno = ? AND n.tipo_nota = 'FINAL'", al.getId());
+                    "SELECT n.valor FROM notas n " +
+                            "JOIN inscripcion i ON n.id_inscripcion = i.id_inscripcion " +
+                            "WHERE i.id_alumno = ? AND n.tipo_nota = 'FINAL'",
+                    al.getId());
 
             double promedio = 0.0;
             if (!notasFinales.isEmpty()) {
@@ -1498,18 +1489,19 @@ public class App {
 
             // Materias inscriptas con su estado
             List<Map> materias = Base.findAll(
-                "SELECT m.nombre_materia, m.codigo, m.anio_pertenece, m.periodo, " +
-                "i.estado, i.id_inscripcion " +
-                "FROM inscripcion i " +
-                "JOIN materia m ON i.id_materia = m.id_materia " +
-                "WHERE i.id_alumno = ? " +
-                "ORDER BY m.anio_pertenece, m.nombre_materia", al.getId());
+                    "SELECT m.nombre_materia, m.codigo, m.anio_pertenece, m.periodo, " +
+                            "i.estado, i.id_inscripcion " +
+                            "FROM inscripcion i " +
+                            "JOIN materia m ON i.id_materia = m.id_materia " +
+                            "WHERE i.id_alumno = ? " +
+                            "ORDER BY m.anio_pertenece, m.nombre_materia",
+                    al.getId());
 
             // Para cada materia, cargar sus notas
             for (Map materia : materias) {
                 List<Map> notas = Base.findAll(
-                    "SELECT valor, tipo_nota FROM notas WHERE id_inscripcion = ?",
-                    materia.get("id_inscripcion"));
+                        "SELECT valor, tipo_nota FROM notas WHERE id_inscripcion = ?",
+                        materia.get("id_inscripcion"));
                 materia.put("notas", notas);
                 materia.put("tieneNotas", !notas.isEmpty());
             }
@@ -1517,7 +1509,7 @@ public class App {
             model.put("username", user.get("name"));
             model.put("materias", materias);
             model.put("tieneMaterias", !materias.isEmpty());
-            
+
             // Pasar datos formateados a la vista
             model.put("progreso", String.format(java.util.Locale.US, "%.1f", progreso));
             model.put("promedio", String.format(java.util.Locale.US, "%.2f", promedio));
