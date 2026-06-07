@@ -26,7 +26,7 @@ El sistema propuesto permitirá:
 ---
 
 ### Diagrama de clases UML:
-![Diagrama UML](imagenes/DiagramaClasesISII.png)
+![Diagrama UML](imagenes/UML_Proyecto_IS2.png)
 
 ---
 

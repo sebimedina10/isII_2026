@@ -90,13 +90,13 @@ mvn clean install
 ### Crear la estructura de tablas
 
 ```bash
-sqlite3 db/dev.db < src/main/resources/schema.sql
+sqlite3 db/dev.db < src/main/resources/scheme.sql
 ```
 
 ### Cargar datos iniciales
 
 ```bash
-sqlite3 db/dev.db < src/main/resources/seed.sql
+sqlite3 db/dev.db < src/main/resources/seed_unrc.sql
 ```
 
 ---

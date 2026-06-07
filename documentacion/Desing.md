@@ -56,9 +56,19 @@ Almacena toda la información persistente del sistema, incluyendo usuarios, carr
 
 ### Diagrama de Diseño (Modelo de Dominio)
 
-El siguiente diagrama representa las principales entidades del sistema y las relaciones existentes entre ellas.
+El siguiente diagrama representa las principales entidades del sistema, sus atributos y las relaciones existentes entre ellas. Además, refleja las reglas de negocio implementadas y la estructura conceptual utilizada durante el desarrollo del proyecto.
 
-![Diagrama UML](imagenes/DiagramaClasesISII.png)
+#### Diagrama inicial (Ingeniería de Software I)
+
+Este fue el modelo de dominio elaborado durante la primera etapa del proyecto. Representa una versión preliminar del sistema y no contempla todas las funcionalidades, relaciones y requisitos que fueron incorporados posteriormente durante el desarrollo de Ingeniería de Software II.
+
+![Diagrama UML Inicial](imagenes/DiagramaClasesISII.png)
+
+#### Diagrama actualizado (Ingeniería de Software II)
+
+Este diagrama corresponde a la versión final del modelo de dominio. Fue refinado para representar adecuadamente la arquitectura actual del sistema, incorporando nuevas entidades, clases de asociación, cardinalidades, restricciones y relaciones necesarias para soportar funcionalidades como la gestión de carreras, planes de estudio, inscripciones, asignación de docentes, carga de notas y administración académica.
+
+![Diagrama UML Actualizado](imagenes/UML_Proyecto_IS2.png)
 
 ---
 
